@@ -1,16 +1,11 @@
-import os
-
+import sys
+from pathlib import Path
 import requests
-from dotenv import load_dotenv
-from pipeline_config import MODEL
 
-load_dotenv()
+# Ensure src is in Python path for clean cross-module imports
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-TOKEN = os.getenv("OPENROUTER_API_TOKEN")
-BASE_URL = "https://openrouter.ai/api/v1"
-# Keeping it fast, smart, and completely free
-JUDGE_MODEL = MODEL
-
+from common.config import BASE_URL, JUDGE_MODEL, TOKEN
 
 def evaluate_semantics(original_prompt, generated_code):
     """Compares the generated Goal DSL file against the original user prompt

@@ -4,36 +4,38 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import uuid
-
-from dotenv import load_dotenv
-from envpop_parser import parse_envpop_model
-from envpop_validator import validate_goal_dsl_against_world
 import requests
 
-# Import dev configuration switches
-from pipeline_config import (
+# Ensure root src is in Python path for clean cross-module imports
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from common.config import (
+    BASE_URL,
+    DATA_DIR,
     ENABLE_TIER_1,
     ENABLE_TIER_2,
     ENABLE_TIER_3,
+    EXPERIMENTS_DIR,
     MAX_RETRIES,
     MODEL,
+    REFERENCE_DIR,
+    TOKEN,
+    WORLD_MODELS_DIR,
 )
+from envpop_parser import parse_envpop_model
+from envpop_validator import validate_goal_dsl_against_world
 from semantic_judge import evaluate_semantics
-
-load_dotenv()
-
-TOKEN = os.getenv("OPENROUTER_API_TOKEN")
-BASE_URL = "https://openrouter.ai/api/v1"
 
 
 def load_example_code(filename="reference_example.goal"):
-    base_path = os.path.dirname(__file__)
-    file_path = os.path.join(base_path, filename)
+    file_path = REFERENCE_DIR / filename
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
+        print(f"⚠️ Warning: Reference file {file_path} not found.")
         return ""
 
 
@@ -188,9 +190,8 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
         {"role": "user", "content": nl_prompt},
     ]
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    file_name = os.path.join(script_dir, "llm_created_file.goal")
-    csv_path = os.path.join(script_dir, "eval_results.csv")
+    file_name = str(DATA_DIR / "llm_created_file.goal")
+    csv_path = str(EXPERIMENTS_DIR / "eval_results.csv")
     pipeline_success = False
 
     active_tier_list = [
@@ -407,7 +408,7 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
         return generated_code
 
     if not pipeline_success and os.path.exists(file_name):
-        failed_backup = os.path.join(script_dir, "failed_output.goal")
+        failed_backup = str(DATA_DIR / "failed_output.goal")
         os.replace(file_name, failed_backup)
         print(f"\n🚨 Loop terminated. Invalid file saved to: {failed_backup}")
 
@@ -415,14 +416,16 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
 
 
 if __name__ == "__main__":
-    script_dir = Path(__file__).parent
-    yaml_world_file = script_dir / "mission_6a97199291cd57a8ea506e26.yaml"
-
+    yaml_world_file = WORLD_MODELS_DIR / "mission_6a97199291cd57a8ea506e26.yaml"
     instruction = "Task: Create a complete Goal DSL file that follows all formal constraints. "
     nl_content = load_nl_input("prompt.txt")
 
     if nl_content:
-        full_prompt = instruction + "Here is the explanation in natural language:\n" + nl_content
+        full_prompt = (
+            instruction
+            + "Here is the explanation in natural language:\n"
+            + nl_content
+        )
         generate_and_verify_dsl(full_prompt, yaml_world_file, max_retries=MAX_RETRIES)
     else:
         print("No natural language input provided. Exiting.")
