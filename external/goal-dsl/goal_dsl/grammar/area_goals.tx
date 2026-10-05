@@ -1,0 +1,76 @@
+import entity
+import types
+import time_constraint
+import utils
+
+
+AreaGoal:
+    RectangleAreaGoal     |
+    CircularAreaGoal      |
+    StraightLine          |
+    MovingAreaGoal        |
+    PolylineAreaGoal
+;
+
+
+RectangleAreaGoal:
+    'Goal<RectangleArea>' name=ID
+    (
+        ('entities:' '-' entities+=[Entity:FQN|+pm:entities*]['-'])?
+        ('bottomLeftEdge:' bottomLeftEdge=Point )
+        ('lengthX:' lengthX=NUMBER)
+        ('lengthY:' lengthY=NUMBER)
+        ('tag:' tag=AreaGoalTag )
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#  // Any order
+    'end'
+;
+
+PolylineAreaGoal:
+    'Goal<PolylineArea>' name=ID
+    (
+        ('entities:' '-' entities+=[Entity:FQN|+pm:entities*]['-'])?
+        ('points:' '[' points+=Point[','] ']' )
+        ('tag:' tag=AreaGoalTag )
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#  // Any order
+    'end'
+;
+
+MovingAreaGoal:
+    'Goal<MovingArea>' name=ID
+    (
+        ('movingEntity:' entity=[Entity:FQN|+pm:entities*])
+        ('entities:' '-' entities+=[Entity:FQN|+pm:entities*]['-'])?
+        ('radius:' radius=NUMBER)
+        ('tag:' tag=AreaGoalTag)
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#  // Any order
+    'end'
+;
+
+CircularAreaGoal:
+    'Goal<CircularArea>' name=ID
+    (
+        ('entities:' '-' entities+=[Entity:FQN|+pm:entities*]['-'])?
+        ('center:' center=Point)
+        ('radius:' radius=NUMBER)
+        ('tag:' tag=AreaGoalTag)
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#
+    'end'
+;
+
+StraightLine:
+    'Goal<StraightLine>' name=ID
+    (
+        ('entities:' '-' entities+=[Entity:FQN|+pm:entities*]['-'])?
+        ('startPoint:' startPoint=Point)
+        ('endPoint:' endPoint=Point)
+        ('tag:' tag=AreaGoalTag)
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#
+    'end'
+;
+
+AreaGoalTag: 'ENTER' | 'EXIT' | 'AVOID' | 'STEP';

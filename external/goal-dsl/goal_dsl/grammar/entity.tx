@@ -1,0 +1,73 @@
+import communication
+import types
+import utils
+
+
+EntitySource:
+    (ref=[MessageBroker])       |
+    (ref=[RESTEndpoint])
+;
+
+/*
+EntitySource:
+    BrokerSource |
+    RestSource
+;
+
+BrokerSource:
+    brokerRef=[MessageBroker] '@' uri=STRING
+;
+
+RestSource:
+    endpointRef=[RESTEndpoint]
+;
+*/
+
+/*
+DBSQLSource:
+    dbRef=[DBSQL] '@' query=STRING
+;
+
+DBNoSQLource:
+    dbRef=[DBNoSQL] '@' collection=STRING ',' filter=STRING
+;
+*/
+
+Entity:
+    'Entity' name=ID
+    (
+        ('type:' etype=EntityType)
+        ('source:' source=EntitySource)
+        ('mode:' mode=EntityMode)?
+        ('freq:' mode=NUMBER)?
+        ('attributes:' '-' attributes*=Attribute['-'])?
+        ('uri:' uri=STRING)?
+        ('description:' description=STRING)?
+        ('compartments'
+            entities*=Entity
+        'end')?
+    )#
+    'end'
+;
+
+EntityType:
+    'sensor'    |
+    'actuator'  |
+    'hybrid'    |
+    'robot'     |
+    'other'
+;
+
+EntityMode:
+    'virtual'       |
+    'simulation'    |
+    'real'          |
+    'digitwin'      |
+    'other'
+;
+
+Attribute:
+    name=ID ':' dtype=[DataType:FQN|+m:types*]
+        ( '('precision_x=INT (',' precision_y=INT)? ')' )?
+        ( '[' lower=MultiplicityBound (',' upper=MultiplicityBound )? ']' )?
+;

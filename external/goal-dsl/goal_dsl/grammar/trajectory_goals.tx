@@ -1,0 +1,45 @@
+import time_constraint
+import types
+import entity
+import utils
+
+TrajectoryGoal:
+    StraightLineTrajectoryGoal  |
+    WaypointTrajectoryGoal
+;
+
+StraightLineTrajectoryGoal:
+    'Goal<StraightLineTrajectory>' name=ID
+    (
+        ('entity:' entity=[Entity:FQN|+pm:entities*])
+        ('startPoint:' startPoint=Point)
+        ('finishPoint:' finishPoint=Point)
+        ('maxDeviation:' maxDeviation=NUMBER)
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#
+    'end'
+;
+
+WaypointTrajectoryGoal:
+    'Goal<WaypointTrajectory>' name=ID
+    (
+        ('entity:' entity=[Entity:FQN|+pm:entities*])
+        ('points:' '[' points+=Point[','] ']')
+        ('maxDeviation:' maxDeviation=NUMBER)
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#
+    'end'
+;
+
+CurveTrajectoryGoal:
+    'Goal<CurveTrajectoryGoal>' name=ID
+    (
+        ('entity:' entity=[Entity:FQN|+pm:entities*])
+        ('startPoint:' startPoint=Point)
+        ('finishPoint:' finishPoint=Point)
+        ('curvature:' curvature=NUMBER)
+        ('maxDeviation:' maxDeviation=NUMBER)
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#
+    'end'
+;

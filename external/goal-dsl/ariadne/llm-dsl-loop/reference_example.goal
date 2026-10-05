@@ -1,0 +1,153 @@
+// Example file 1:
+Broker<MQTT> HomeMQTT
+    host: 'localhost'
+    port: 1883
+    auth:
+        username: ''
+        password: ''
+end
+
+Entity TempSensor1
+    type: sensor
+    uri: 'bedroom.sensor.temperature'
+    source: HomeMQTT
+    attributes:
+        - temp: float
+end
+
+Entity TempSensor2
+    type: sensor
+    uri: 'bathroom.sensor.temperature'
+    source: HomeMQTT
+    attributes:
+        - temp: float
+end
+
+Entity TempSensor3
+    type: sensor
+    uri: 'livingroom.sensor.temperature'
+    source: HomeMQTT
+    attributes:
+        - temp: float
+end
+
+Entity AirQualitySensor1
+    type: sensor
+    uri: 'kitchen.sensor.airq'
+    source: HomeMQTT
+    attributes:
+        - gas: float
+        - humidity: float
+end
+
+Goal<EntityStateChange> Goal_1
+    entity: TempSensor1
+end
+
+Goal<EntityStateCondition> Goal_2
+    condition:
+        (AirQualitySensor1.gas < 10) and
+        (AirQualitySensor1.humidity < 30)
+end
+
+Goal<EntityStateCondition> Goal_3
+    condition: (TempSensor1.temp > 10) and
+    (TempSensor2.temp > 10) and
+    (TempSensor3.temp > 10)
+end
+
+Goal<Complex> CG1
+    goals:
+        - Goal_1
+        - Goal_2
+        - Goal_3
+    strategy: ALL_ACCOMPLISHED_ORDERED
+end
+
+Scenario MyScenario
+    goals:
+        - CG1
+    concurrent: False
+end
+
+// Example file 2:
+Broker<MQTT> LocsysMQTT
+    host: 'locsys.issel.ee.auth.gr'
+    port: 8883
+    ssl: true
+    auth:
+        username: 'sensors'
+        password: 'issel.sensors'
+end
+
+Broker<MQTT> HomeMQTT
+    host: 'localhost'
+    port: 1883
+    auth:
+        username: ''
+        password: ''
+end
+
+Broker<Redis> LocalRedis
+    host: 'localhost'
+    port: 6379
+    auth:
+        username: ''
+        password: ''
+end
+
+Entity Robot1Pose
+    type: sensor
+    uri: 'gn_robot_1.pose.internal'
+    source: LocalRedis
+    attributes:
+        - position: dict
+        - orientation: dict
+end
+
+Goal<CircularArea> Goal_1
+    center: Point3D(100, 5, 0)
+    radius: 0.5
+    tag: ENTER
+    timeConstraints:
+        - FROM_GOAL_START(<60)
+end
+
+Goal<CircularArea> Goal_2
+    center: Point3D(100, 10, 0)
+    radius: 0.5
+    tag: ENTER
+    timeConstraints:
+        - FROM_GOAL_START(<60)
+end
+
+Goal<CircularArea> Goal_3
+    center: Point3D(95, 10, 0)
+    radius: 0.5
+    tag: ENTER
+    timeConstraints:
+        - FROM_GOAL_START(<60)
+end
+
+Goal<CircularArea> Goal_4
+    center: Point3D(95, 5, 0)
+    radius: 0.5
+    tag: ENTER
+    timeConstraints:
+        - FROM_GOAL_START(<60)
+end
+
+RTMonitor
+    broker: LocalRedis
+    eventTopic: "goaldsl.{U_ID}.event"
+    logsTopic: "goaldsl.{U_ID}.log"
+end
+
+Scenario DoRectangleScenario
+    goals:
+        - Goal_1
+        - Goal_2
+        - Goal_3
+        - Goal_4
+    concurrent: False
+end

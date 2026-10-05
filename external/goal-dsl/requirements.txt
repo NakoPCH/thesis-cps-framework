@@ -1,0 +1,9 @@
+click
+colorama
+pydantic>=2.0.0
+fastapi>=0.100.0
+textX>=4.0.0
+rich
+python-multipart
+aiofiles
+jinja2==3.1.6

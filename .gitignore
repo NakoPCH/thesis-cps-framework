@@ -1,0 +1,18 @@
+# Python environment & cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Local credentials
+.env
+
+# Generated intermediate evaluation files
+experiments/artifacts/
+llm_created_file.goal
+failed_output.goal
+
+# VS Code / OS files
+.vscode/
+.DS_Store
+Thumbs.db

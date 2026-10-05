@@ -1,0 +1,82 @@
+import entity_goals
+import area_goals
+import pose_goals
+import trajectory_goals
+import time_constraint
+import utils
+import condition
+
+
+Goal:
+    EntityGoal           |
+    AreaGoal             |
+    PoseGoal             |
+    PositionGoal         |
+    OrientationGoal      |
+    TrajectoryGoal       |
+    ComplexGoal          |
+    GoalRepeater         |
+    GTermGoal
+;
+
+
+ComplexGoal:
+    'Goal<Complex>' name=ID
+    (
+        ('goals:' '-' goals*=WeightedGoal['-'])
+        ('strategy:' algorithm=[ComplexGoalAlgorithmType])
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+        ('xAccomplished:' xAccomplished=INT)?
+    )#
+    'end'
+;
+
+ComplexGoalAlgorithmType:
+    'ALL_ACCOMPLISHED'               |
+    'NONE_ACCOMPLISHED'              |
+    'AT_LEAST_ONE_ACCOMPLISHED'      |
+    'JUST_ONE_ACCOMPLISHED'          |
+    'EXACTLY_X_ACCOMPLISHED'         |
+	'ALL_ACCOMPLISHED_ORDERED'       |
+    'EXACTLY_X_ACCOMPLISHED_ORDERED'
+;
+
+// ======================================================================
+GTermGoal:
+    'Goal<GTerm>' name=ID
+    (
+        ('terms:' '-' terms*=GoalTermDef['-'])
+        ('operator:' operator=LogicalOperator)?
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#
+    'end'
+;
+
+GoalTermDef:
+    r1=GoalTermGroup (operator=LogicalOperator r2=GoalTermGroup)*
+;
+
+GoalReference:
+    r=[Goal:FQN|+m:goals*]
+;
+
+GoalTermGroup:
+    '(' r=GoalTermDef ')' |
+    r=GoalReference
+;
+// ======================================================================
+
+GoalRepeater:
+    'Goal<Repeater>' name=ID
+    (
+        ('goal:' goal=[Goal:FQN|+m:goals*])
+        ('times:' times=INT)
+        ('timeConstraints:' '-' timeConstraints*=TimeConstraint['-'])?
+    )#
+    'end'
+;
+
+WeightedGoal:
+    goal=[Goal:FQN|+m:goals*] ('->' weight=FLOAT)?
+;
+

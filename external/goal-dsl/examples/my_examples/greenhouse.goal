@@ -1,0 +1,67 @@
+// Smart Greenhouse Maintenance scenario
+
+Broker<Redis> LocalStore
+    host: 'localhost'
+    port: 6379
+end
+
+// Entities
+Entity ClimateSensor
+    type: sensor
+    uri: 'greenhouse.sensors.humidity'
+    source: LocalStore
+    attributes:
+        - humidity: float
+end
+
+Entity  WaterBot
+    type: robot
+    uri: 'greenhouse.robot.actuator'
+    source: LocalStore
+    attributes:
+        - waterLevel: float
+        - battery: float
+        - position: dict
+end
+
+// Basic Goals
+Goal<EntityStateCondition> CheckBattery
+    condition: (WaterBot.battery > 20.0)
+end
+
+Goal<EntityStateCondition> CheckHumidity
+    condition: (ClimateSensor.humidity < 40.0)
+end
+
+Goal<Position> MoveToRefillStation
+    entity: WaterBot
+    position: Point2D(5.0, 5.0) 
+    maxDeviation: 0.5
+end
+
+Goal<EntityStateCondition> CheckWaterLevel
+    condition: (WaterBot.waterLevel > 90.0)
+end
+
+Goal<Position> MoveToPlant
+    entity: WaterBot
+    position: Point2D(10.0, 10.0)
+    maxDeviation: 0.5
+end
+
+Goal<Complex> WaterPlants
+    goals:
+    - CheckBattery -> 1.0
+    - CheckHumidity -> 0.9
+    - MoveToRefillStation -> 0.8
+    - CheckWaterLevel -> 1.0
+    - MoveToPlant -> 0.8
+    strategy: ALL_ACCOMPLISHED_ORDERED
+    timeConstraints:
+    - FROM_GOAL_START(<600)
+end
+
+Scenario GreenhouseMaintenance
+    goals:
+    - WaterPlants -> 0.9
+end
