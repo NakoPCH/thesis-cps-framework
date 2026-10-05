@@ -1,0 +1,23 @@
+Create a greenhouse maintenance scenario in Goal DSL using a Redis Broker on localhost at port 6379.
+
+Define two entities:
+
+A sensor entity named ClimateSensor at the URI greenhouse.sensors.humidity which has a float attribute for humidity.
+
+A hybrid entity named WaterBot at the URI greenhouse.robot.actuator with float attributes for waterLevel and battery, and a dictionary attribute for position.
+
+Define the following goals:
+
+An EntityStateCondition goal named CheckBattery to ensure the WaterBot battery is above 20.0.
+
+An EntityStateCondition goal named CheckHumidity to check if the ClimateSensor humidity is below 40.0.
+
+A Position goal named MoveToRefillStation for the WaterBot to reach Point2D(5.0, 5.0) with a maximum deviation of 0.5.
+
+An EntityStateCondition goal named CheckWaterLevel to verify the WaterBot waterLevel is above 90.0.
+
+A Position goal named MoveToPlant for the WaterBot to reach Point2D(10.0, 10.0) with a maximum deviation of 0.5.
+
+Group these goals into a Complex goal named WaterPlants and assign reasonable weights (every weight should be unique) for each using your own judgement. Use the all accomplished ordered strategy to ensure the goals are performed sequentially. Add a time constraint requiring the goal to be finished within 600 seconds from the goal start.
+
+Finally, create a Scenario named GreenhouseMaintenance that executes the WaterPlants goal.

@@ -1,0 +1,50 @@
+simulation:
+  name: streamsim
+map:
+  width: 500
+  height: 500
+  resolution: 0.05
+world:
+  places: []
+  pois:
+    - name: refill_station
+      place: world
+      pose:
+        x: 5.0
+        'y': 5.0
+        theta: 0
+    - name: plant_area
+      place: world
+      pose:
+        x: 10.0
+        'y': 10.0
+        theta: 0
+env_devices:
+  temperature_sensors: []
+  humidity_sensors:
+    - name: ClimateSensor
+      mode: simulation
+      category: sensors
+      transports:
+        publishers:
+          - topic: greenhouse.sensors.humidity
+            payload:
+              humidity: number
+  gas_sensors: []
+  ambient_light_sensor: []
+  ph_sensors: []
+  alarms_area: []
+  alarms_linear: []
+  distance_sensors: []
+  thermostats: []
+  humidifiers: []
+  lights: []
+  relays: []
+  speakers: []
+robots:
+  - name: WaterBot
+    mode: simulation
+actors:
+  humans: []
+  waters: []
+  fires: []
