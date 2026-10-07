@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Base Directories
@@ -30,6 +31,6 @@ JUDGE_MODEL = MODEL
 
 # Verification Loop Configuration
 ENABLE_TIER_1 = True
-ENABLE_TIER_2 = False
+ENABLE_TIER_2 = True
 ENABLE_TIER_3 = True
 MAX_RETRIES = 3

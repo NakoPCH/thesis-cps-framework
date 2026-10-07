@@ -1,6 +1,7 @@
+import re
 from pathlib import Path
 from pprint import pprint
-import re
+
 from envpop_parser import parse_envpop_model
 
 

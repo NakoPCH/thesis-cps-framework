@@ -137,22 +137,22 @@
 
 
 ### DSL Rules: Complex & Composition Goals (goal.tx)
-* All composition goal blocks terminate with `end`[cite: 11].
+* All composition goal blocks terminate with `end`.
 
 * Goal<Complex>:
-  - Allowed strategies (`strategy:`): `ALL_ACCOMPLISHED` | `NONE_ACCOMPLISHED` | `AT_LEAST_ONE_ACCOMPLISHED` | `JUST_ONE_ACCOMPLISHED` | `EXACTLY_X_ACCOMPLISHED` | `ALL_ACCOMPLISHED_ORDERED` | `EXACTLY_X_ACCOMPLISHED_ORDERED`[cite: 11]
-  - Required fields: `goals:` (hyphenated list: `- <Goal>` or `- <Goal> -> <weight>`), `strategy: <strategy>`[cite: 11]
-  - Optional fields: `xAccomplished: <int>`, `timeConstraints:` (hyphenated list)[cite: 11]
-  - Note: Use `xAccomplished:` strictly when using `EXACTLY_X_*` strategies[cite: 11].
+  - Allowed strategies (`strategy:`): `ALL_ACCOMPLISHED` | `NONE_ACCOMPLISHED` | `AT_LEAST_ONE_ACCOMPLISHED` | `JUST_ONE_ACCOMPLISHED` | `EXACTLY_X_ACCOMPLISHED` | `ALL_ACCOMPLISHED_ORDERED` | `EXACTLY_X_ACCOMPLISHED_ORDERED`
+  - Required fields: `goals:` (hyphenated list: `- <Goal>` or `- <Goal> -> <weight>`), `strategy: <strategy>`
+  - Optional fields: `xAccomplished: <int>`, `timeConstraints:` (hyphenated list)
+  - Note: Use `xAccomplished:` strictly when using `EXACTLY_X_*` strategies.
 
 * Goal<Repeater>:
-  - Required fields: `goal: <Goal>`, `times: <int>`[cite: 11]
-  - Optional fields: `timeConstraints:` (hyphenated list)[cite: 11]
-  - FORBIDDEN fields: `goals:` (use singular `goal:` with a single target)[cite: 11]
+  - Required fields: `goal: <Goal>`, `times: <int>`
+  - Optional fields: `timeConstraints:` (hyphenated list)
+  - FORBIDDEN fields: `goals:` (use singular `goal:` with a single target)
 
 * Goal<GTerm>:
-  - Required fields: `terms:` (hyphenated list of logic terms: `- (<Goal1> and <Goal2>)` or `- <Goal>`)[cite: 11]
-  - Optional fields: `operator: <LogicalOperator>`, `timeConstraints:` (hyphenated list)[cite: 11]
+  - Required fields: `terms:` (hyphenated list of logic terms: `- (<Goal1> and <Goal2>)` or `- <Goal>`)
+  - Optional fields: `operator: <LogicalOperator>`, `timeConstraints:` (hyphenated list)
 
 
 ### DSL Rules: Pose, Orientation & Position Goals (pose_goals.tx)

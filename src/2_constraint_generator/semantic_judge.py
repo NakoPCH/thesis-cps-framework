@@ -1,11 +1,13 @@
 import sys
 from pathlib import Path
+
 import requests
 
 # Ensure src is in Python path for clean cross-module imports
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from common.config import BASE_URL, JUDGE_MODEL, TOKEN
+
 
 def evaluate_semantics(original_prompt, generated_code):
     """Compares the generated Goal DSL file against the original user prompt
@@ -20,6 +22,7 @@ def evaluate_semantics(original_prompt, generated_code):
         "and constraints semantically. Check thresholds, entity URIs, broker specifications, and strategies.\n\n"
         "CRITICAL CONSTRAINTS:\n"
         "- Do NOT call or invoke any tools or functions.\n"
+        "- Do NOT write, propose, or generate corrected DSL code or syntax snippets in any format (no code blocks, no pseudo-code, no YAML). Your role is strictly evaluative: explain what requirement was missed, violated, or logically inconsistent in plain conceptual language so the generator can correct itself using its own grammar references.\n"
         "- NEVER generate tool-calling tokens or syntax like <|tool_call_start|>, [verify(...)], [analyze_code(...)], or <|tool_call_end|>.\n"
         "- Output your entire evaluation strictly in plain text using the verdict layout below.\n\n"
         "You must output your final decision using this exact layout prefix:\n"

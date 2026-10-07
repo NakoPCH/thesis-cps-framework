@@ -141,7 +141,7 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
 
 if __name__ == "__main__":
     current_dir = Path(__file__).parent
-    yaml_file = current_dir / "mission_6a97199291cd57a8ea506e26.yaml"
+    yaml_file = current_dir / "world_model.yaml"
 
     if not yaml_file.exists():
         print(f"Error: Could not find {yaml_file.name} in {current_dir}")

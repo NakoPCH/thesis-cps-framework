@@ -10,7 +10,7 @@ end
 Entity TempSensor1
     type: sensor
     uri: 'bedroom.sensor.temperature'
-    source: HomeMQTT
+    source: HomeMQTT    // Note that the source: key should match the name of the Broker defined, which is HomeMQTT in this case
     attributes:
         - temp: float
 end
@@ -44,9 +44,9 @@ Goal<EntityStateChange> Goal_1
     entity: TempSensor1
 end
 
-Goal<EntityStateCondition> Goal_2   // Note that this type of has only condition: key and optional timeConstraints: key
+Goal<EntityStateCondition> Goal_2   // Note that this type of goal has only condition: key and optional timeConstraints: key
     condition:
-        (AirQualitySensor1.gas < 10) and    // Note that conditions are written inside parenthesis
+        (AirQualitySensor1.gas < 10) and    // Note that conditions are written inside PARENTHESIS and can be combined with logical operators like AND, OR, NOT
         (AirQualitySensor1.humidity < 30)
 end
 
@@ -175,3 +175,14 @@ Scenario DoRectangleScenario
         - Goal_4
     concurrent: False
 end
+
+// Extra helpful notes after observing common mistakes in the generated code:
+//
+// * TimeConstraint Structure:
+//  - Syntax: `<Type>(<optional_comparator><float_time>)`
+//  - Allowed Types (`type`): `FROM_SCENARIO_START` | `FROM_GOAL_START` | `FOR_TIME` | `BETWEEN_GOALS_MIN` | `BETWEEN_GOALS_MAX`
+//  - Allowed Comparators (`comparator`): `>` | `<` | `==` | `>=` | `<=`
+//  - Examples:
+//    - `- FROM_GOAL_START(<60)`
+//    - `- FOR_TIME(5)`
+//    - `- FROM_SCENARIO_START(<=180.0)`

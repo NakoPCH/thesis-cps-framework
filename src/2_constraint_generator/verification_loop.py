@@ -1,15 +1,20 @@
 import csv
-from datetime import datetime
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
 import uuid
+from datetime import datetime
+from pathlib import Path
+
 import requests
 
 # Ensure root src is in Python path for clean cross-module imports
 sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from envpop_parser import parse_envpop_model
+from envpop_validator import validate_goal_dsl_against_world
+from semantic_judge import evaluate_semantics
 
 from common.config import (
     BASE_URL,
@@ -24,9 +29,6 @@ from common.config import (
     TOKEN,
     WORLD_MODELS_DIR,
 )
-from envpop_parser import parse_envpop_model
-from envpop_validator import validate_goal_dsl_against_world
-from semantic_judge import evaluate_semantics
 
 
 def load_example_code(filename="reference_example.goal"):
@@ -416,7 +418,7 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
 
 
 if __name__ == "__main__":
-    yaml_world_file = WORLD_MODELS_DIR / "mission_6a97199291cd57a8ea506e26.yaml"
+    yaml_world_file = WORLD_MODELS_DIR / "world_model.yaml"
     instruction = "Task: Create a complete Goal DSL file that follows all formal constraints. "
     nl_content = load_nl_input("prompt.txt")
 

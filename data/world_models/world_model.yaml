@@ -1,0 +1,124 @@
+simulation:
+  name: streamsim
+map:
+  width: 1000
+  height: 1000
+  resolution: 0.02
+  obstacles:
+    lines:
+      - x1: 0.0
+        y1: 0.0
+        x2: 20.0
+        y2: 0.0
+      - x1: 20.0
+        y1: 0.0
+        x2: 20.0
+        y2: 20.0
+      - x1: 20.0
+        y1: 20.0
+        x2: 0.0
+        y2: 20.0
+      - x1: 0.0
+        y1: 20.0
+        x2: 0.0
+        y2: 0.0
+world:
+  name: GreenhouseWorld
+  places:
+    - greenhouse
+  pois:
+    - name: RefillStation
+      place: greenhouse
+      pose:
+        x: 5.0
+        'y': 5.0
+        theta: 0
+    - name: Plant
+      place: greenhouse
+      pose:
+        x: 10.0
+        'y': 10.0
+        theta: 0
+  properties:
+    humidity:
+      operation: constant
+      operation_parameters:
+        constant:
+          value: 35.0
+    temperature:
+      operation: constant
+      operation_parameters:
+        constant:
+          value: 24.0
+robots:
+  - name: WaterBot
+    mode: simulation
+    place: greenhouse
+    category: actuators
+    pose:
+      x: 0.0
+      'y': 0.0
+      theta: 0
+    transports:
+      publishers:
+        - topic: greenhouse.robot.actuator
+          payload:
+            waterLevel: number
+            battery: number
+            position: object
+      subscribers:
+        - topic: greenhouse.robot.actuator
+          payload:
+            waterLevel: number
+            battery: number
+            position: object
+env_devices:
+  pan_tilt: []
+  ph_sensors: []
+  temperature_sensors: []
+  humidity_sensors:
+    - name: ClimateSensor
+      mode: simulation
+      place: greenhouse
+      operation: constant
+      pose:
+        x: 5.0
+        'y': 5.0
+        theta: 0
+      state: 'on'
+      proximity_mode: false
+      proximity_distance: 5
+      hz: 1
+      operation_parameters:
+        constant:
+          value: 35.0
+      category: sensors
+      transports:
+        publishers:
+          - topic: greenhouse.sensors.humidity
+            payload:
+              humidity: number
+              value: number
+  gas_sensors: []
+  camera_sensors: []
+  distance_sensors: []
+  alarms_linear: []
+  alarms_area: []
+  ambient_light_sensor: []
+  microphones: []
+  relays: []
+  speakers: []
+  lights: []
+  thermostats: []
+  humidifiers: []
+actors:
+  humans: []
+  collectibles: []
+  sound_sources: []
+  qrs: []
+  barcodes: []
+  colors: []
+  texts: []
+  rfid_tags: []
+  fires: []
+  waters: []
