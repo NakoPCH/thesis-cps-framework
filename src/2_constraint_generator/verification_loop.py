@@ -42,13 +42,15 @@ def load_example_code(filename="reference_example.goal"):
 
 
 def load_nl_input(filename="prompt.txt"):
+    # Check data/prompts/ first, then fallback to local directory
+    prompts_dir = DATA_DIR / "prompts"
+    file_path = prompts_dir / filename if (prompts_dir / filename).exists() else Path(__file__).parent / filename
+
     try:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        full_path = os.path.join(script_dir, filename)
-        with open(full_path, "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return f.read().strip()
     except FileNotFoundError:
-        print(f"Error: {filename} not found.")
+        print(f"Error: Neither {prompts_dir / filename} nor {Path(__file__).parent / filename} exists.")
         return None
 
 

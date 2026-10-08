@@ -44,7 +44,7 @@ Goal<EntityStateChange> Goal_1
     entity: TempSensor1
 end
 
-Goal<EntityStateCondition> Goal_2   // Note that this type of goal has only condition: key and optional timeConstraints: key
+Goal<EntityStateCondition> Goal_2   // Note that this type of goal has only condition: key and optional timeConstraints: key, it does not have entity: key
     condition:
         (AirQualitySensor1.gas < 10) and    // Note that conditions are written inside PARENTHESIS and can be combined with logical operators like AND, OR, NOT
         (AirQualitySensor1.humidity < 30)

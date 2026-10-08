@@ -26,11 +26,12 @@ TOKEN = os.getenv("OPENROUTER_API_TOKEN")
 BASE_URL = "https://openrouter.ai/api/v1"
 
 # Model Selection
-MODEL = "liquid/lfm-2.5-2.6b:free"
+# MODEL = "liquid/lfm-2.5-2.6b:free"    google/gemma-4-31b-it:free
+MODEL = "google/gemma-4-26b-a4b-it:free"
 JUDGE_MODEL = MODEL
 
 # Verification Loop Configuration
 ENABLE_TIER_1 = True
 ENABLE_TIER_2 = True
-ENABLE_TIER_3 = True
+ENABLE_TIER_3 = False
 MAX_RETRIES = 3
