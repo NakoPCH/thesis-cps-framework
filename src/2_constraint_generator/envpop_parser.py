@@ -1,7 +1,12 @@
+import re
+import sys
 from pathlib import Path
 from pprint import pprint
 
 import yaml
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from common.config import DATA_DIR, WORLD_MODELS_DIR
 
 
 def parse_envpop_model(yaml_file_path: str | Path) -> dict:
@@ -39,11 +44,12 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
             "security": {"sensors": [], "actuators": []},
             "other": {"sensors": [], "actuators": []},
         },
+        "all_valid_device_names": set(),
         "all_valid_entity_names": set(),
         "all_topics": {"publishers": [], "subscribers": []},
     }
 
-    # 1. Parse Locations (POIs and Places)
+    # 1. Parse Locations (Places and POIs - kept separate from hardware devices)
     for poi in data.get("world", {}).get("pois", []):
         name = poi.get("name")
         if name:
@@ -56,7 +62,7 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
             world_summary["locations"].append(name)
             world_summary["all_valid_entity_names"].add(name)
 
-    # 2. Devices (Sensors & Actuators)
+    # 2. Parse Environment Devices (Sensors & Actuators)
     for device_type, device_list in data.get("env_devices", {}).items():
         if not isinstance(device_list, list):
             continue
@@ -96,6 +102,7 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
                 "sub_topics": sub_topics,
             }
 
+            world_summary["all_valid_device_names"].add(name)
             world_summary["all_valid_entity_names"].add(name)
             world_summary["all_topics"]["publishers"].extend(pub_topics)
             world_summary["all_topics"]["subscribers"].extend(sub_topics)
@@ -111,7 +118,7 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
                 world_summary["actuators"][name] = device_info
                 world_summary["entities_by_metric"][metric]["actuators"].append(name)
 
-    # 3. Dynamic Actors & Robots
+    # 3. Dynamic Actors & Robots (Robots are effectors/hybrids)
     for actor_type, actor_list in data.get("actors", {}).items():
         if isinstance(actor_list, list):
             for i, actor in enumerate(actor_list):
@@ -125,41 +132,46 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
                     },
                     "range": actor.get("range"),
                 }
+                world_summary["all_valid_device_names"].add(name)
                 world_summary["all_valid_entity_names"].add(name)
 
     for robot in data.get("robots", []):
         name = robot.get("name")
-        if name:
-            world_summary["actors"][name] = {"name": name, "type": "robot"}
-            world_summary["all_valid_entity_names"].add(name)
+        if not name:
+            continue
 
-    world_summary["all_valid_entity_names"] = sorted(  # noqa: C414
+        transports = robot.get("transports", {})
+        pub_topics = [
+            p.get("topic")
+            for p in transports.get("publishers", [])
+            if p.get("topic")
+        ]
+        sub_topics = [
+            s.get("topic")
+            for s in transports.get("subscribers", [])
+            if s.get("topic")
+        ]
+
+        robot_info = {
+            "name": name,
+            "type": "robot",
+            "category": robot.get("category", "actuators"),
+            "pose": robot.get("pose", {}),
+            "pub_topics": pub_topics,
+            "sub_topics": sub_topics,
+        }
+
+        world_summary["actors"][name] = robot_info
+        world_summary["actuators"][name] = robot_info
+        world_summary["all_valid_device_names"].add(name)
+        world_summary["all_valid_entity_names"].add(name)
+        world_summary["all_topics"]["publishers"].extend(pub_topics)
+        world_summary["all_topics"]["subscribers"].extend(sub_topics)
+
+    world_summary["all_valid_device_names"] = sorted(
+        list(world_summary["all_valid_device_names"])
+    )
+    world_summary["all_valid_entity_names"] = sorted(
         list(world_summary["all_valid_entity_names"])
     )
     return world_summary
-
-
-if __name__ == "__main__":
-    current_dir = Path(__file__).parent
-    yaml_file = current_dir / "world_model.yaml"
-
-    if not yaml_file.exists():
-        print(f"Error: Could not find {yaml_file.name} in {current_dir}")
-    else:
-        results = parse_envpop_model(yaml_file)
-        print("=" * 50)
-        print(f"Loaded Simulation: {results['simulation']}")
-        print(f"Total Valid Entities: {len(results['all_valid_entity_names'])}")
-        print("=" * 50)
-
-        print("\n--- All Valid Entity Names ---")
-        pprint(results["all_valid_entity_names"])
-
-        print("\n--- Sensors & Actuators by Metric ---")
-        pprint(results["entities_by_metric"])
-
-        print("\n--- Parsed Actors ---")
-        pprint(results["actors"])
-
-        print("\n--- Parsed Locations (POIs) ---")
-        pprint(results["locations"])

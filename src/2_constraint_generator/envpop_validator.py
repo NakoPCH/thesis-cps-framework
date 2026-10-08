@@ -1,14 +1,17 @@
 import re
+import sys
 from pathlib import Path
 from pprint import pprint
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 from envpop_parser import parse_envpop_model
+
+from common.config import DATA_DIR, WORLD_MODELS_DIR
 
 
 def extract_goal_dsl_entities(dsl_code: str) -> list[dict]:
     """Parses declared Entity blocks and their metadata from Goal-DSL code."""
     entities = []
-    # Match Entity <name> ... end blocks
     entity_blocks = re.findall(
         r"Entity\s+([A-Za-z0-9_]+)(.*?)(?:end|(?=Entity|\Z))",
         dsl_code,
@@ -16,15 +19,12 @@ def extract_goal_dsl_entities(dsl_code: str) -> list[dict]:
     )
 
     for name, body in entity_blocks:
-        # Extract entity type (sensor, actuator, hybrid)
         type_match = re.search(r"type:\s*(\w+)", body)
         entity_type = type_match.group(1).lower() if type_match else "unknown"
 
-        # Extract URI
         uri_match = re.search(r"uri:\s*['\"](.*?)['\"]", body)
         uri = uri_match.group(1) if uri_match else ""
 
-        # Extract declared attributes
         attrs = re.findall(r"-\s*([A-Za-z0-9_]+)\s*:\s*(\w+)", body)
         attributes = {attr_name: attr_type for attr_name, attr_type in attrs}
 
@@ -41,37 +41,43 @@ def extract_goal_dsl_entities(dsl_code: str) -> list[dict]:
 
 
 def extract_condition_attribute_usages(dsl_code: str) -> set[tuple[str, str]]:
-    """Extracts all (entity_name, attribute_name) pairs referenced inside conditions.
-
-    Example: 'ClimateSensor.humidity' -> ('ClimateSensor', 'humidity')
-    """
-    # Matches patterns like EntityName.attributeName
+    """Extracts all (entity_name, attribute_name) pairs referenced inside conditions."""
     matches = re.findall(
         r"\b([A-Za-z0-9_]+)\.([A-Za-z0-9_]+)\b",
         dsl_code,
     )
-    # Filter out common noise (e.g., standard libraries or sub-keys if any)
     return set(matches)
+
+
+def _normalize(name: str) -> str:
+    """Removes underscores, hyphens, and casing differences for clean identifier comparison."""
+    return re.sub(r"[^a-z0-9]", "", name.lower())
 
 
 def match_dsl_entity_to_world(
     dsl_entity: dict, world_model: dict
 ) -> str | None:
-    """Finds the corresponding physical entity in the world model by name or URI matching."""
-    dsl_name_clean = dsl_entity["name"].lower()
-    dsl_uri_clean = dsl_entity["uri"].lower()
+    """Matches a DSL Entity declaration to a real physical device or robot in the world model.
 
-    for valid_name in world_model["all_valid_entity_names"]:
-        vn_clean = valid_name.lower()
-        # 1. Exact name match
-        if vn_clean == dsl_name_clean:
-            return valid_name
-        # 2. Substring match (e.g. 'upper_temperature_sensor' -> 'upper_temperature')
-        if vn_clean in dsl_name_clean or dsl_name_clean in vn_clean:
-            return valid_name
-        # 3. URI match (e.g. URI contains 'upper_temperature')
-        if vn_clean in dsl_uri_clean:
-            return valid_name
+    Locations (POIs/places) are excluded.
+    """
+    dsl_norm = _normalize(dsl_entity["name"])
+    valid_devices = world_model.get("all_valid_device_names", [])
+
+    # 1. Exact normalized name match (e.g., 'WaterBot' matches 'water_bot')
+    for dev_name in valid_devices:
+        if _normalize(dev_name) == dsl_norm:
+            return dev_name
+
+    # 2. Topic/URI Endpoint Match: check if the declared URI matches the device's actual topic
+    dsl_uri = dsl_entity.get("uri", "").strip()
+    if dsl_uri:
+        for dev_name in valid_devices:
+            dev_info = world_model["sensors"].get(dev_name) or world_model["actuators"].get(dev_name)
+            if dev_info:
+                topics = dev_info.get("pub_topics", []) + dev_info.get("sub_topics", [])
+                if dsl_uri in topics and _normalize(dev_name) in dsl_norm:
+                    return dev_name
 
     return None
 
@@ -89,7 +95,7 @@ def validate_goal_dsl_against_world(
             ["No 'Entity' declarations found in the generated Goal-DSL."],
         )
 
-    # Map DSL entity name to matched world entity name
+    valid_devices = world_model.get("all_valid_device_names", [])
     dsl_to_world_map = {}
 
     for entity in declared_entities:
@@ -97,37 +103,41 @@ def validate_goal_dsl_against_world(
         e_type = entity["type"]
         matched_world_entity = match_dsl_entity_to_world(entity, world_model)
 
-        # 1. Entity Existence Check (Hallucination Barrier)
+        # 1. Device Existence Check (Catches hallucinated names)
         if not matched_world_entity:
             errors.append(
                 f"Grounding Error: Entity '{e_name}' (URI: '{entity['uri']}') does not exist "
-                f"in the 2D world model. Available entities are: {world_model['all_valid_entity_names']}"
+                f"in the physical world model. Valid available devices are: {valid_devices}"
             )
             continue
 
         dsl_to_world_map[e_name] = matched_world_entity
 
-        # 2. Category & Role Check (Sensor vs. Actuator)
+        # 2. Category & Role Check
         is_world_sensor = matched_world_entity in world_model["sensors"]
         is_world_actuator = matched_world_entity in world_model["actuators"]
+        is_world_actor = matched_world_entity in world_model["actors"]
 
-        if e_type == "sensor" and not is_world_sensor and is_world_actuator:
+        if e_type == "sensor" and not is_world_sensor:
             errors.append(
                 f"Role Mismatch: Entity '{e_name}' is declared as 'type: sensor', but in the "
-                f"physical world '{matched_world_entity}' is an actuator (effector)."
+                f"physical world '{matched_world_entity}' is not registered as a sensor."
             )
-        elif (
-            e_type == "actuator" and not is_world_actuator and is_world_sensor
-        ):
+        elif e_type == "actuator" and not is_world_actuator:
             errors.append(
                 f"Role Mismatch: Entity '{e_name}' is declared as 'type: actuator', but in the "
-                f"physical world '{matched_world_entity}' is a sensor."
+                f"physical world '{matched_world_entity}' is not an actuator."
+            )
+        elif e_type == "hybrid" and not (is_world_actor or (is_world_sensor and is_world_actuator)):
+            errors.append(
+                f"Role Mismatch: Entity '{e_name}' is declared as 'type: hybrid', but in the "
+                f"physical world '{matched_world_entity}' is not a hybrid/actor device."
             )
 
         # 3. Physical Metric Consistency Check
         if is_world_sensor:
             device_info = world_model["sensors"][matched_world_entity]
-            actual_metric = device_info["metric"]
+            actual_metric = device_info.get("metric")
             for attr in entity["attributes"].keys():
                 attr_lower = attr.lower()
                 if (
@@ -137,14 +147,13 @@ def validate_goal_dsl_against_world(
                     and actual_metric != "humidity"
                 ):
                     errors.append(
-                        f"Metric Inconsistency: Entity '{e_name}' measures physical attribute '{actual_metric}', "
+                        f"Metric Inconsistency: Entity '{e_name}' measures '{actual_metric}', "
                         f"but the DSL code declares attribute '{attr}'."
                     )
 
     # 4. Check references inside Condition blocks
     condition_refs = extract_condition_attribute_usages(dsl_code)
     for ref_entity, ref_attr in condition_refs:
-        # Ignore references to Goal objects or non-entity keywords
         if ref_entity in [e["name"] for e in declared_entities]:
             if ref_entity not in dsl_to_world_map:
                 errors.append(
@@ -157,8 +166,8 @@ def validate_goal_dsl_against_world(
 
 if __name__ == "__main__":
     current_dir = Path(__file__).parent
-    yaml_path = current_dir / "greenhouse_model.yaml"
-    dsl_path = current_dir / "llm_created_file.goal"
+    yaml_path = WORLD_MODELS_DIR / "world_model.yaml"
+    dsl_path = DATA_DIR / "llm_created_file.goal"
 
     if not yaml_path.exists():
         print(f"Error: {yaml_path.name} not found.")
