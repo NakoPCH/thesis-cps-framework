@@ -90,8 +90,8 @@ def fetch_and_judge_free_models():
         else:
             print(f"❌ Judge assignment failed with status {judge_response.status_code}: {judge_response.text}")
 
-    except Exception as e:
-        print(f"❌ An error occurred during execution: {str(e)}")
+    except (requests.RequestException, ValueError, KeyError, TypeError) as e:
+        print(f"❌ An error occurred during execution: {e!s}")
 
 if __name__ == "__main__":
     fetch_and_judge_free_models()

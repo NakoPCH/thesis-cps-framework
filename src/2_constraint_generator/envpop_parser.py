@@ -175,3 +175,28 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
         list(world_summary["all_valid_entity_names"])
     )
     return world_summary
+
+if __name__ == "__main__":
+    current_dir = Path(__file__).parent
+    yaml_file = WORLD_MODELS_DIR / "world_model.yaml"
+
+    if not yaml_file.exists():
+        print(f"Error: Could not find {yaml_file.name} in {current_dir}")
+    else:
+        results = parse_envpop_model(yaml_file)
+        print("=" * 50)
+        print(f"Loaded Simulation: {results['simulation']}")
+        print(f"Total Valid Entities: {len(results['all_valid_entity_names'])}")
+        print("=" * 50)
+
+        print("\n--- All Valid Entity Names ---")
+        pprint(results["all_valid_entity_names"])
+
+        print("\n--- Sensors & Actuators by Metric ---")
+        pprint(results["entities_by_metric"])
+
+        print("\n--- Parsed Actors ---")
+        pprint(results["actors"])
+
+        print("\n--- Parsed Locations (POIs) ---")
+        pprint(results["locations"])

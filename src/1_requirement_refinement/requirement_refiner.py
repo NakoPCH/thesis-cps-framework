@@ -2,27 +2,20 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import requests
 
 # Add root src directory to sys.path for shared imports
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-# Import shared configurations
-from common.config import BASE_URL, MODEL, TOKEN, WORLD_MODELS_DIR
+from world_context import extract_detailed_world_context
 
-# Import Tier-2 parser from constraint generator
-sys.path.append(str(Path(__file__).resolve().parents[1] / "2_constraint_generator"))
-try:
-    from envpop_parser import parse_envpop_model
-except ImportError:
-    parse_envpop_model = None
+from common.config import BASE_URL, MODEL, TOKEN
 
 
 class RequirementRefiner:
     """Manages the interactive dialogue loop to extract, ground, and refine
-
     ambiguous human intent into fully specified Goal-DSL scenario prompts.
     """
 
@@ -33,25 +26,7 @@ class RequirementRefiner:
     ):
         self.max_turns = max_turns
         self.turn_count = 0
-        self.world_model = None
-        self.world_summary_prompt = "No world model provided. Infer plausible cyber-physical entities."
-
-        # Load and summarize world model if available
-        if yaml_world_file and os.path.exists(yaml_world_file) and parse_envpop_model:
-            try:
-                self.world_model = parse_envpop_model(yaml_world_file)
-                self.world_summary_prompt = (
-                    "ACTIVE 2D PHYSICAL WORLD CONSTRAINTS:\n"
-                    f"- Sensors: {list(self.world_model['sensors'].keys())}\n"
-                    f"- Actuators / Robots: {list(self.world_model['actuators'].keys())}\n"
-                    f"- Locations / POIs: {self.world_model['locations']}\n"
-                    f"- Monitored Metrics: {list(self.world_model['entities_by_metric'].keys())}\n"
-                    "CRITICAL: The user's system ONLY has these devices. You must strictly guide "
-                    "the user to bind their scenario to these physical assets."
-                )
-            except Exception as e:
-                print(f"⚠️ Warning: Could not parse world model: {e}")
-
+        self.world_summary_prompt = extract_detailed_world_context(yaml_world_file)
         self.system_prompt = self._build_system_prompt()
         self.messages = [{"role": "system", "content": self.system_prompt}]
 
@@ -62,19 +37,29 @@ class RequirementRefiner:
             "and physically grounded operational scenario that will be translated into formal Goal-DSL specifications.\n\n"
             f"{self.world_summary_prompt}\n\n"
             "REQUIREMENT CHECKLIST (Slots needed for a valid scenario):\n"
-            "1. Target Entities: Specific robots, actuators, or sensors involved.\n"
-            "2. Preconditions & Thresholds: Explicit numerical bounds (e.g., battery > 20.0, humidity < 40.0).\n"
-            "3. Actions & Waypoints: Concrete targets or POIs (e.g., RefillStation, Plant coordinates).\n"
-            "4. Execution Logic: Sequential (ALL_ACCOMPLISHED_ORDERED) vs Concurrent.\n"
-            "5. Safety Limits: Timeouts (e.g., max 600s) or safe shutdown limits.\n\n"
+            "1. Target Entities: Specific robots, sensors, and their exact attributes from the world model.\n"
+            "2. Preconditions & Thresholds: Explicit numerical bounds (e.g., entity.attribute > value).\n"
+            "3. Actions & Waypoints: Concrete targets with Point2D(x, y) coordinates from the POI list.\n"
+            "4. Execution Logic: Sequential ordering (ALL_ACCOMPLISHED_ORDERED) vs Concurrent.\n"
+            "5. Safety Limits: Execution timeouts (e.g., max 600s).\n\n"
             "OPERATING GUIDELINES:\n"
-            "- Ask 1 or at most 2 concise, focused questions per turn. Never overwhelm the user.\n"
-            "- If the user names non-existent devices, point out the real available devices and propose an alternative.\n"
-            "- For minor details (e.g., standard timeouts or tolerances), infer reasonable defaults and state what you assumed.\n"
+            "- Ask 1 or at most 2 concise questions per turn. Never overwhelm the user.\n"
+            "- If the user names non-existent devices, point out the real available devices.\n"
             "- Once all necessary slots are resolved, output a structured summary starting with '=== SCENARIO SUMMARY ===' "
-            "and ask the user to confirm (e.g., 'Do you approve this specification?').\n"
-            "- When the user explicitly approves/confirms the summary, output the final prompt for the compiler wrapped "
-            "strictly between <<<REFINED_PROMPT>>> and <<</REFINED_PROMPT>>> tags."
+            "and ask the user to confirm ('Do you approve this specification?').\n\n"
+            "OUTPUT PROTOCOL WHEN USER CONFIRMS/APPROVES:\n"
+            "When the user approves the summary, do NOT output pseudo-code or YAML configs. "
+            "Instead, generate a structured natural language prompt designed for a Goal-DSL compiler.\n"
+            "The prompt MUST follow this exact structure:\n"
+            "1. Broker Setup: Broker type (Redis by default), host ('localhost'), port (6379).\n"
+            "2. Entity Definitions: Name, type (sensor, actuator, hybrid), exact URI, broker source, and typed attributes.\n"
+            "3. Goal Definitions:\n"
+            "   - EntityStateCondition goals: Goal name and condition expression (<Entity>.<attribute> <op> <value>).\n"
+            "   - Position goals: Goal name, target entity, Point2D(x, y) coordinates, and maximum deviation tolerance.\n"
+            "   - Complex goal: Goal name, list of sub-goals with unique weights (e.g., 0.1, 0.2), execution strategy, and time constraint.\n"
+            "4. Scenario Definition: Scenario name, complex goal to execute, and concurrency setting.\n\n"
+            "Enclose the final prompt strictly between <<<REFINED_PROMPT>>> and <<</REFINED_PROMPT>>>.\n"
+            "Do not add any text after <<</REFINED_PROMPT>>>."
         )
 
     def _query_llm(self) -> Optional[str]:
@@ -101,38 +86,32 @@ class RequirementRefiner:
             return f"❌ Connection failure: {e}"
 
     def process_turn(self, user_input: str) -> Dict[str, Any]:
-        """Processes one conversational turn with the user.
-
-        Returns a dictionary containing:
-          - 'message': The assistant's textual response.
-          - 'is_complete': Boolean indicating if refinement is finalized.
-          - 'refined_prompt': The final prompt string (if finalized), else None.
-        """
+        """Processes one conversational turn with the user."""
         self.turn_count += 1
         self.messages.append({"role": "user", "content": user_input})
 
         assistant_reply = self._query_llm()
         if not assistant_reply:
-            assistant_reply = "An error occurred while communicating with the reasoning model."
+            assistant_reply = "An error occurred while communicating with the model."
 
         self.messages.append({"role": "assistant", "content": assistant_reply})
 
-        # Check if the model produced the final verified output tag
+        # Match tags regardless of whether the closing slash is present
         match = re.search(
-            r"<<<REFINED_PROMPT>>>(.*?)<<</REFINED_PROMPT>>>",
+            r"<<<REFINED_PROMPT>>>(.*?)(?:<<</?REFINED_PROMPT>>>|\Z)",
             assistant_reply,
             re.DOTALL,
         )
 
-        if match:
+        if match and match.group(1).strip():
             refined_prompt = match.group(1).strip()
-            # Clean up the output message presented to the user
             display_message = re.sub(
-                r"<<<REFINED_PROMPT>>>.*?<<</REFINED_PROMPT>>>",
+                r"<<<REFINED_PROMPT>>>.*?(?:<<</?REFINED_PROMPT>>>|\Z)",
                 "",
                 assistant_reply,
                 flags=re.DOTALL,
             ).strip()
+
             if not display_message:
                 display_message = "✅ Requirements finalized and approved."
 
@@ -143,7 +122,6 @@ class RequirementRefiner:
                 "turns_taken": self.turn_count,
             }
 
-        # Check turn budget safety
         if self.turn_count >= self.max_turns:
             return {
                 "message": (

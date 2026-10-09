@@ -1,0 +1,38 @@
+1. Broker Setup:
+- Broker Type: Redis
+- Host: localhost
+- Port: 6379
+
+2. Entity Definitions:
+- Name: WaterBot, Type: hybrid, URI: 'greenhouse.robot.actuator', Broker Source: redis, Attributes: [battery (float), position (Point2D), waterLevel (float)]
+- Name: ClimateSensor, Type: sensor, URI: 'greenhouse.sensors.humidity', Broker Source: redis, Attributes: [humidity (float), value (float)]
+
+3. Goal Definitions:
+- Goal: HumidityThresholdCheck
+  - Condition: ClimateSensor.humidity < 35
+- Goal: BatteryCheck
+  - Condition: WaterBot.battery >= 20
+- Goal: RefillStationArrival
+  - Target: WaterBot
+  - Coordinates: Point2D(5.0, 5.0)
+  - Tolerance: 0.5
+- Goal: WaterLevelFull
+  - Condition: WaterBot.waterLevel >= 90
+- Goal: PlantArrival
+  - Target: WaterBot
+  - Coordinates: Point2D(10.0, 10.0)
+  - Tolerance: 0.5
+- Goal: CompleteWateringMission
+  - Sub-goals:
+    - BatteryCheck (Weight: 0.1)
+    - RefillStationArrival (Weight: 0.2)
+    - WaterLevelFull (Weight: 0.3)
+    - PlantArrival (Weight: 0.4)
+  - Execution Strategy: ALL_ACCOMPLISHED_ORDERED
+  - Time Constraint: 600s
+
+4. Scenario Definition:
+- Scenario Name: Humidity-Triggered Watering Mission
+- Complex Goal: CompleteWateringMission
+- Concurrency Setting: Sequential (Triggered by HumidityThresholdCheck)
+<<<REFINED_PROMPT>
