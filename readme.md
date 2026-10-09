@@ -174,15 +174,3 @@ ENABLE_TIER_3 = True   # LLM semantic feasibility check
 MAX_RETRIES = 3        # Maximum self-repair feedback iterations
 
 ```
-
----
-
-## 8. Guidelines for AI Coding Agents
-
-When modifying this repository or implementing subsequent pipeline stages:
-
-1. **Path Resolution:** Never hardcode absolute or local relative filesystem paths. Always import paths from `src/common/config.py` (`DATA_DIR`, `EXPERIMENTS_DIR`, `WORLD_MODELS_DIR`, `REFERENCE_DIR`, etc.).
-2. **Artifact Isolation:** Source folders (`src/`) must remain clean. Output logs belong in `experiments/`, and generated models belong in `data/`.
-3. **Module Imports:** Add standard package markers (`__init__.py`) to new subdirectories under `src/`. For cross-module imports, resolve relative to the project root or append `src/` via `sys.path`.
-4. **Deterministic Validation First:** Before invoking costly LLM evaluations, prioritize deterministic checks (grammar validation via `goaldsl validate`, schema validation, AST parsing, and world model consistency).
-5. **Data Preservation:** Benchmark metrics must always append cleanly to `experiments/eval_results.csv` without overwriting existing evaluation histories.
