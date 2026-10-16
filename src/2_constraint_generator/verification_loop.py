@@ -6,6 +6,7 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
 
 import requests
 
@@ -44,13 +45,19 @@ def load_example_code(filename="reference_example.goal"):
 def load_nl_input(filename="prompt.txt"):
     # Check data/prompts/ first, then fallback to local directory
     prompts_dir = DATA_DIR / "prompts"
-    file_path = prompts_dir / filename if (prompts_dir / filename).exists() else Path(__file__).parent / filename
+    file_path = (
+        prompts_dir / filename
+        if (prompts_dir / filename).exists()
+        else Path(__file__).parent / filename
+    )
 
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read().strip()
     except FileNotFoundError:
-        print(f"Error: Neither {prompts_dir / filename} nor {Path(__file__).parent / filename} exists.")
+        print(
+            f"Error: Neither {prompts_dir / filename} nor {Path(__file__).parent / filename} exists."
+        )
         return None
 
 
@@ -59,7 +66,6 @@ def _extract_syntax_error_details(syntax_error, dsl_code):
     if not syntax_error:
         return "-", "-"
 
-    # Matches patterns like: "filename.goal:14:1: Expected..." or ":14:"
     match = re.search(r":(\d+):(?:\d+)?:", syntax_error)
     if not match:
         match = re.search(r":(\d+):", syntax_error)
@@ -75,7 +81,7 @@ def _extract_syntax_error_details(syntax_error, dsl_code):
 
 
 def _sanitize_error_text(text):
-    """Flattens multiline error logs for clean single-line CSV display."""
+    """Flattens multiline error logs for single-line display."""
     if not text:
         return "-"
     return text.strip().replace("\r\n", " | ").replace("\n", " | ")
@@ -157,10 +163,14 @@ def _run_syntax_check(file_path):
     return is_valid, error_msg
 
 
-def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RETRIES):
-    example_code = load_example_code()
+def generate_and_verify_dsl(
+    nl_prompt: str, yaml_world_file=None, max_retries=MAX_RETRIES
+) -> Dict[str, Any]:
+    """Generates Goal-DSL code from prompt and executes tiered verification.
 
-    # Create a unique ID for this entire execution run
+    Returns structured telemetry dictionary for pipeline logging.
+    """
+    example_code = load_example_code()
     run_id = f"RUN-{datetime.now().strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:4]}"
 
     world_model = None
@@ -185,7 +195,7 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
                 " "
                 "CRITICAL SYNTAX RULES:"
                 "1. Every 'Entity' MUST contain: 'type', 'uri', 'source', and 'attributes'."
-                "2. In 'Goal<EntityStateCondition>', use the 'condition:' block (and optionally the timeConstraints:). NEVER include an 'entity:' line in this goal type."
+                "2. In 'Goal<EntityStateCondition>', use the 'condition:' block (and optionally timeConstraints:). NEVER include an 'entity:' line in this goal type."
                 "3. Entities in conditions MUST be referenced using dot-notation: <EntityName>.<attributeName>."
                 "Do not include markdown formatting or explanations.\n"
                 "If the prompt omits technical details, automatically infer valid defaults to satisfy the syntax rules.\n"
@@ -197,6 +207,7 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
     file_name = str(DATA_DIR / "llm_created_file.goal")
     csv_path = str(EXPERIMENTS_DIR / "eval_results.csv")
     pipeline_success = False
+    attempts_history = []
 
     active_tier_list = [
         name
@@ -219,6 +230,15 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
 
         generated_code = _query_llm_generator(messages)
         if not generated_code:
+            error_entry = {
+                "attempt": attempt_num,
+                "status": "FAILED",
+                "failed_tier": "LLM Generation",
+                "generated_code": None,
+                "error_message": "No response payload received from OpenRouter.",
+            }
+            attempts_history.append(error_entry)
+
             _log_attempt_to_csv(
                 csv_path,
                 {
@@ -241,13 +261,27 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
             f.write(generated_code)
 
         # ----------------------------------------------------
-        # TIER 1: Grammar & Syntax Check (goaldsl CLI)
+        # TIER 1: Syntax Check
         # ----------------------------------------------------
         if ENABLE_TIER_1:
             syntax_passed, syntax_error = _run_syntax_check(file_name)
             if not syntax_passed:
                 print(f"❌ Tier 1 Failed. Syntax Error:\n{syntax_error}")
-                line_no, code_line = _extract_syntax_error_details(syntax_error, generated_code)
+                line_no, code_line = _extract_syntax_error_details(
+                    syntax_error, generated_code
+                )
+
+                attempts_history.append(
+                    {
+                        "attempt": attempt_num,
+                        "status": "FAILED",
+                        "failed_tier": "Tier 1 (Syntax)",
+                        "generated_code": generated_code,
+                        "error_line_no": line_no,
+                        "error_code_line": code_line,
+                        "error_message": syntax_error,
+                    }
+                )
 
                 _log_attempt_to_csv(
                     csv_path,
@@ -278,31 +312,22 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
                 )
                 continue
             print("✅ Tier 1 Passed: Syntax is structurally valid.")
-        else:
-            print("⏩ Tier 1 Skipped (Disabled in config).")
 
         # ----------------------------------------------------
-        # TIER 2: EnvPop Ground Truth Validation (Deterministic)
+        # TIER 2: World Grounding Check
         # ----------------------------------------------------
         if ENABLE_TIER_2:
             print("Validating with EnvPop World Model (Tier 2)...")
             if not world_model:
-                print("⚠️ Tier 2 Error: World validation enabled, but no valid YAML file was loaded.")
-                _log_attempt_to_csv(
-                    csv_path,
+                print("⚠️ Tier 2 Error: No valid YAML file loaded.")
+                attempts_history.append(
                     {
-                        "Run_ID": run_id,
-                        "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "Model": MODEL,
-                        "Attempt": attempt_num,
-                        "Max_Retries": max_retries,
-                        "Status": "FAILED",
-                        "Active_Tiers": active_tiers_str,
-                        "Failed_Tier": "Tier 2 (Config Error)",
-                        "Error_Line_No": "-",
-                        "Error_Code_Line": "-",
-                        "Error_Message": "World model YAML file missing or invalid.",
-                    },
+                        "attempt": attempt_num,
+                        "status": "FAILED",
+                        "failed_tier": "Tier 2 (Config Error)",
+                        "generated_code": generated_code,
+                        "error_message": "World model YAML file missing or invalid.",
+                    }
                 )
                 break
 
@@ -312,7 +337,17 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
 
             if not world_passed:
                 feedback_str = "\n".join(f"- {err}" for err in world_errors)
-                print(f"❌ Tier 2 Failed: World Model Inconsistencies Detected:\n{feedback_str}")
+                print(f"❌ Tier 2 Failed: World Model Errors:\n{feedback_str}")
+
+                attempts_history.append(
+                    {
+                        "attempt": attempt_num,
+                        "status": "FAILED",
+                        "failed_tier": "Tier 2 (World Grounding)",
+                        "generated_code": generated_code,
+                        "error_message": feedback_str,
+                    }
+                )
 
                 _log_attempt_to_csv(
                     csv_path,
@@ -336,26 +371,34 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
                     {
                         "role": "user",
                         "content": (
-                            f"The syntax is valid, but your code references devices that do not exist or mismatch "
-                            f"the 2D world model:\n{feedback_str}\n"
-                            f"Please regenerate the code using ONLY real devices:\n{valid_devices_hint}"
+                            f"The syntax is valid, but your code references devices that do not exist "
+                            f"in the 2D world model:\n{feedback_str}\n"
+                            f"Please regenerate using ONLY real devices:\n{valid_devices_hint}"
                         ),
                     }
                 )
                 continue
             print("✅ Tier 2 Passed: All entities match the physical world model.")
-        else:
-            print("⏩ Tier 2 Skipped (Disabled in config).")
 
         # ----------------------------------------------------
-        # TIER 3: Domain & Physical Feasibility (LLM Judge)
+        # TIER 3: Semantic Judge
         # ----------------------------------------------------
         if ENABLE_TIER_3:
             print("Validating with Semantic Judge (Tier 3)...")
             is_correct, judge_feedback = evaluate_semantics(nl_prompt, generated_code)
 
             if not is_correct:
-                print(f"❌ Tier 3 Failed: Domain / Physics Discrepancy:\n{judge_feedback}")
+                print(f"❌ Tier 3 Failed: Domain Error:\n{judge_feedback}")
+
+                attempts_history.append(
+                    {
+                        "attempt": attempt_num,
+                        "status": "FAILED",
+                        "failed_tier": "Tier 3 (Semantic Judge)",
+                        "generated_code": generated_code,
+                        "error_message": judge_feedback,
+                    }
+                )
 
                 _log_attempt_to_csv(
                     csv_path,
@@ -379,19 +422,27 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
                     {
                         "role": "user",
                         "content": (
-                            f"The syntax and world entities are correct, but your code has a physical/domain logical error:\n"
+                            f"The code has a domain/logical discrepancy:\n"
                             f"{judge_feedback}\nPlease output the corrected code."
                         ),
                     }
                 )
                 continue
             print("✅ Tier 3 Passed: Domain semantics confirmed.")
-        else:
-            print("⏩ Tier 3 Skipped (Disabled in config).")
 
         # All enabled stages passed
-        print(f"\n🎉 Verification Success on Attempt {attempt_num}! Passed: [{active_tiers_str}].")
+        print(f"\n🎉 Verification Success on Attempt {attempt_num}!")
         pipeline_success = True
+
+        attempts_history.append(
+            {
+                "attempt": attempt_num,
+                "status": "SUCCESS",
+                "failed_tier": None,
+                "generated_code": generated_code,
+                "error_message": None,
+            }
+        )
 
         _log_attempt_to_csv(
             csv_path,
@@ -409,14 +460,26 @@ def generate_and_verify_dsl(nl_prompt, yaml_world_file=None, max_retries=MAX_RET
                 "Error_Message": "-",
             },
         )
-        return generated_code
+
+        return {
+            "status": "SUCCESS",
+            "run_id": run_id,
+            "total_attempts": attempt_num,
+            "generated_code": generated_code,
+            "attempts": attempts_history,
+        }
 
     if not pipeline_success and os.path.exists(file_name):
         failed_backup = str(DATA_DIR / "failed_output.goal")
         os.replace(file_name, failed_backup)
-        print(f"\n🚨 Loop terminated. Invalid file saved to: {failed_backup}")
 
-    return None
+    return {
+        "status": "FAILED",
+        "run_id": run_id,
+        "total_attempts": len(attempts_history),
+        "generated_code": None,
+        "attempts": attempts_history,
+    }
 
 
 if __name__ == "__main__":
@@ -430,6 +493,8 @@ if __name__ == "__main__":
             + "Here is the explanation in natural language:\n"
             + nl_content
         )
-        generate_and_verify_dsl(full_prompt, yaml_world_file, max_retries=MAX_RETRIES)
+        res = generate_and_verify_dsl(full_prompt, yaml_world_file, max_retries=MAX_RETRIES)
+        if res["status"] == "SUCCESS":
+            print("\nFinal Compiled Goal-DSL Code:\n" + res["generated_code"])
     else:
         print("No natural language input provided. Exiting.")

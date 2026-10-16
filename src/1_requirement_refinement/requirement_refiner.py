@@ -26,9 +26,11 @@ class RequirementRefiner:
     ):
         self.max_turns = max_turns
         self.turn_count = 0
+        self.yaml_world_file = str(yaml_world_file) if yaml_world_file else None
         self.world_summary_prompt = extract_detailed_world_context(yaml_world_file)
         self.system_prompt = self._build_system_prompt()
         self.messages = [{"role": "system", "content": self.system_prompt}]
+        self.final_refined_prompt: Optional[str] = None
 
     def _build_system_prompt(self) -> str:
         return (
@@ -104,7 +106,9 @@ class RequirementRefiner:
             "  Write a command specifying the scenario theme and the broker details (e.g., 'Create a [Theme] scenario in Goal DSL using a Redis Broker on localhost at port 6379.').\n\n"
             "• Paragraph 2 (Entity Definitions):\n"
             "  Start with 'Define [N] entities:' and describe each entity in continuous prose. For every entity, specify its exact Goal-DSL type "
-            "(sensor, actuator, or hybrid), name, URI, source, and typed attributes (e.g., 'A hybrid entity named [Name] at the URI [URI] with float attributes for...').\n\n"
+            "(sensor, actuator, or hybrid), name, URI, source, and list its attributes using valid GoalDSL data types "
+            "(mapping numeric measurements to scalar floats, and structured payload objects to 'dict') "
+            "(e.g., 'A hybrid entity named [Name] at the URI [URI] with float attributes for [scalar1] and [scalar2], and dict attributes for [complexAttr], sourced from [Source].').\n\n"
             "• Paragraph 3 (Primitive Goal Declarations):\n"
             "  Start with 'Define the following goals:' followed by sentences describing each primitive goal. You MUST explicitly name the exact "
             "Goal-DSL class type for each goal (e.g., 'An EntityStateCondition goal named [Name] to ensure...', 'A Position goal named [Name] for [Entity] to reach [Point2D(x, y)] with a maximum deviation of [Dev].').\n\n"
@@ -151,7 +155,7 @@ class RequirementRefiner:
 
         self.messages.append({"role": "assistant", "content": assistant_reply})
 
-        # Match tags flexibly regardless of tag syntax quirks (e.g. <<<REFINED_PROMPT>>> ... <</REFINED_PROMPT>>>)
+        # Match tags flexibly regardless of syntax quirks (e.g. <<<REFINED_PROMPT>>> ... <</REFINED_PROMPT>>>)
         match = re.search(
             r"<<<REFINED_PROMPT>>>(.*?)(?:<+</?REFINED_PROMPT>+>+|\Z)",
             assistant_reply,
@@ -160,10 +164,12 @@ class RequirementRefiner:
 
         if match and match.group(1).strip():
             refined_prompt = match.group(1).strip()
-            # Clean up any residual tag variants (e.g. <</REFINED_PROMPT>>>, <<<REFINED_PROMPT>>>, etc.)
+            # Clean up residual tag variants
             refined_prompt = re.sub(
                 r"<+</?REFINED_PROMPT>+>+", "", refined_prompt, flags=re.IGNORECASE
             ).strip()
+
+            self.final_refined_prompt = refined_prompt
 
             display_message = re.sub(
                 r"<<<REFINED_PROMPT>>>.*?(?:<+</?REFINED_PROMPT>+>+|\Z)",
@@ -183,6 +189,7 @@ class RequirementRefiner:
             }
 
         if self.turn_count >= self.max_turns:
+            self.final_refined_prompt = assistant_reply
             return {
                 "message": (
                     f"{assistant_reply}\n\n⚠️ Conversation turn limit ({self.max_turns}) reached. "
@@ -198,4 +205,25 @@ class RequirementRefiner:
             "is_complete": False,
             "refined_prompt": None,
             "turns_taken": self.turn_count,
+        }
+
+    def export_session_data(self) -> Dict[str, Any]:
+        """Exports full dialogue history and telemetry for pipeline JSON logging."""
+        # Clean transcript filtering system prompt out
+        dialogue_turns = []
+        for i in range(1, len(self.messages), 2):
+            if i + 1 < len(self.messages):
+                dialogue_turns.append(
+                    {
+                        "turn": (i // 2) + 1,
+                        "user_input": self.messages[i]["content"],
+                        "assistant_reply": self.messages[i + 1]["content"],
+                    }
+                )
+
+        return {
+            "world_model_file": self.yaml_world_file,
+            "total_turns": self.turn_count,
+            "dialogue_turns": dialogue_turns,
+            "refined_prompt": self.final_refined_prompt,
         }

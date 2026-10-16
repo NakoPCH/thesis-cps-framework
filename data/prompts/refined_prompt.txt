@@ -1,10 +1,9 @@
-Create an emergency patrol scenario in Goal DSL using a Redis Broker on localhost at port 6379.
+Create a home safety patrol scenario in Goal DSL using a Redis Broker on localhost at port 6379.
 
-Define 4 entities: A hybrid entity named VacuumBot at the URI 'smarthome.robot.vacuum' with float attributes for position, battery, and dustLevel; a sensor entity named LivingRoomTempSensor at the URI 'smarthome.sensors.temperature' with a float attribute for temperature; a sensor entity named KitchenGasSensor at the URI 'smarthome.sensors.gas' with float attributes for co2 and gasLevel; and three POIs: ChargingDock at Point2D(1.0, 1.0), KitchenCounter at Point2D(8.0, 3.0), and FrontDoor at Point2D(12.0, 0.5).
+Define 2 entities: a hybrid entity named VacuumBot at the URI smarthome.robot.vacuum with float attributes for dustLevel, battery, and position, sourced from the Redis Broker; and a sensor entity named LivingRoomTempSensor at the URI smarthome.sensors.temperature with a float attribute for temperature, also sourced from the Redis Broker.
 
-Define the following goals: An EntityStateCondition goal named GasHigh to ensure KitchenGasSensor.co2 > 800.0; an EntityStateCondition goal named BatterySufficient to ensure VacuumBot.battery > 30.0; a Position goal named GoToKitchenCounter for VacuumBot to reach Point2D(8.0, 3.0) with a maximum deviation of 1.0; an EntityStateCondition goal named DustHigh to ensure VacuumBot.dustLevel >= 80.0; and a Position goal named ReturnToDock for VacuumBot to reach Point2D(1.0, 1.0) with a maximum deviation of 1.0.
+Define the following goals: an EntityStateCondition goal named CheckTemperatureCondition to ensure LivingRoomTempSensor.temperature < 18.0; an EntityStateCondition goal named CheckBatteryCondition to ensure VacuumBot.battery >= 20.0; a Position goal named MoveToFrontDoor for VacuumBot to reach Point2D(12.0, 0.5) with a maximum deviation of 1.0 meter; and a Position goal named MoveToKitchenCounter for VacuumBot to reach Point2D(8.0, 3.0) with a maximum deviation of 1.0 meter.
 
-Group the sub-goals into a Complex goal named EmergencyPatrol with weights: GasHigh (1.0), BatterySufficient (1.0), GoToKitchenCounter (1.0), DustHigh (1.0), ReturnToDock (1.0), using the execution strategy all accomplished ordered, and a time constraint finished within 1000 seconds from the goal start.
+A Complex goal named HomeSafetyPatrolComplex bundles the four primitive goals with unique weights 1.0, 2.0, 3.0, and 4.0 respectively, employing the execution strategy ALL_ACCOMPLISHED_ORDERED to enforce sequential completion, and includes a time constraint FROM_GOAL_START(<300) to ensure the entire patrol finishes within 300 seconds from the goal start.
 
-Finally, create a Scenario named EmergencyPatrolScenario that executes the EmergencyPatrol goal.
-<</REFINED_PROMPT>>>
+Finally, create a Scenario named HomeSafetyPatrolScenario that executes the HomeSafetyPatrolComplex goal.
