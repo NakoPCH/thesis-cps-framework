@@ -163,11 +163,11 @@ python src/2_constraint_generator/verification_loop.py
 All global directories, model selections, and operational flags are centralized in `src/common/config.py`:
 
 ```python
-# Model Configurations
+# Global Model Configurations
 MODEL = "liquid/lfm-2.5-2.6b:free"   # Generator model
 JUDGE_MODEL = MODEL                  # Tier 3 Evaluator model
 
-# Tier Execution Toggles
+# Stage 2 Tier Execution Toggles
 ENABLE_TIER_1 = True   # textX syntax compiler check
 ENABLE_TIER_2 = True   # EnvPop deterministic physical grounding check
 ENABLE_TIER_3 = True   # LLM semantic feasibility check

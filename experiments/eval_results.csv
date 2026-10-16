@@ -93,3 +93,7 @@ RUN-20261009-015224-49f0,2026-10-09 01:52:34,google/gemma-4-26b-a4b-it:free,1,3,
 RUN-20261009-015224-49f0,2026-10-09 01:52:45,google/gemma-4-26b-a4b-it:free,2,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
 RUN-20261009-015319-bec9,2026-10-09 01:53:29,google/gemma-4-26b-a4b-it:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
 RUN-20261009-020542-c3cf,2026-10-09 02:05:52,google/gemma-4-26b-a4b-it:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
+RUN-20261009-140311-f7d4,2026-10-09 14:03:22,google/gemma-4-26b-a4b-it:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
+RUN-20261009-140352-70d6,2026-10-09 14:04:03,google/gemma-4-26b-a4b-it:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
+RUN-20261009-142543-6ec2,2026-10-09 14:25:54,google/gemma-4-26b-a4b-it:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
+RUN-20261013-023744-4fd9,2026-10-13 02:37:55,google/gemma-4-26b-a4b-it:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-

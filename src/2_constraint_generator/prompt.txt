@@ -4,35 +4,34 @@
 - Port: 6379
 
 2. Entity Definitions:
-- Name: WaterBot, Type: hybrid, URI: 'greenhouse.robot.actuator', Broker Source: redis, Attributes: [battery (float), position (Point2D), waterLevel (float)]
-- Name: ClimateSensor, Type: sensor, URI: 'greenhouse.sensors.humidity', Broker Source: redis, Attributes: [humidity (float), value (float)]
+- Name: WaterBot
+- Type: hybrid
+- URI: 'greenhouse.robot.actuator'
+- Broker Source: greenhouse.robot.actuator
+- Attributes: position (Point2D), battery (float), waterLevel (float)
 
 3. Goal Definitions:
-- Goal: HumidityThresholdCheck
-  - Condition: ClimateSensor.humidity < 35
-- Goal: BatteryCheck
-  - Condition: WaterBot.battery >= 20
-- Goal: RefillStationArrival
-  - Target: WaterBot
+- Goal: ReachRefillStation
+  - Type: Position
+  - Target Entity: WaterBot
   - Coordinates: Point2D(5.0, 5.0)
-  - Tolerance: 0.5
-- Goal: WaterLevelFull
-  - Condition: WaterBot.waterLevel >= 90
-- Goal: PlantArrival
-  - Target: WaterBot
+  - Max Deviation: 0.5
+- Goal: ReachPlant
+  - Type: Position
+  - Target Entity: WaterBot
   - Coordinates: Point2D(10.0, 10.0)
-  - Tolerance: 0.5
-- Goal: CompleteWateringMission
+  - Max Deviation: 0.5
+- Goal: PatrolSequence
+  - Type: Complex
   - Sub-goals:
-    - BatteryCheck (Weight: 0.1)
-    - RefillStationArrival (Weight: 0.2)
-    - WaterLevelFull (Weight: 0.3)
-    - PlantArrival (Weight: 0.4)
+    - ReachRefillStation (Weight: 0.3)
+    - ReachPlant (Weight: 0.3)
+    - ReachRefillStation (Weight: 0.4)
   - Execution Strategy: ALL_ACCOMPLISHED_ORDERED
-  - Time Constraint: 600s
+  - Time Constraint: 60s
 
 4. Scenario Definition:
-- Scenario Name: Humidity-Triggered Watering Mission
-- Complex Goal: CompleteWateringMission
-- Concurrency Setting: Sequential (Triggered by HumidityThresholdCheck)
+- Scenario Name: WaterBot_BackAndForth_Patrol
+- Complex Goal: PatrolSequence
+- Concurrency: Sequential
 <<<REFINED_PROMPT>
