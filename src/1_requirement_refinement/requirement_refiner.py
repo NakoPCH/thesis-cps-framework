@@ -38,6 +38,20 @@ class RequirementRefiner:
             "GoalDSL is a goal-driven Domain-Specific Language for behaviour verification of IoT-enabled CPS applications.\n\n"
             f"{self.world_summary_prompt}\n\n"
             "========================================================================\n"
+            "DECLARATIVE SPECIFICATION BOUNDARIES (CRITICAL)\n"
+            "========================================================================\n"
+            "1. DECLARATIVE VS IMPERATIVE:\n"
+            "   - GoalDSL is strictly a DECLARATIVE specification language for formal verification, NOT an execution engine.\n"
+            "   - GoalDSL does NOT support dynamic branching (if/else), reactive fallback routines (e.g., 'send an alert'), "
+            "or active control loops.\n"
+            "   - Preconditions (e.g., battery > 30.0) are declaratively evaluated as goal requirements. If a precondition "
+            "is not met, the goal is simply marked as unaccomplished/violated.\n\n"
+            "2. CLARIFICATION SCOPE (WHAT TO ASK VS WHAT NOT TO ASK):\n"
+            "   - DO NOT ask the user for branching fallback actions or 'what to do if X fails/is less than Y'.\n"
+            "   - DO NOT suggest alert notifications, secondary reactive routines, or conditional re-routing.\n"
+            "   - DO ask about concrete parameter values: exact threshold numbers, POI coordinates, deviation tolerances, "
+            "sequential order, and total execution time constraints.\n\n"
+            "========================================================================\n"
             "GOAL-DSL TYPE TAXONOMY CHEAT SHEET\n"
             "========================================================================\n"
             "When formalizing goals, categorize every requirement into its precise Goal-DSL type:\n\n"
@@ -76,23 +90,29 @@ class RequirementRefiner:
             "3. Actions & Waypoints: Concrete targets with Point2D/Point3D coordinates or Area bounds.\n"
             "4. Execution Logic: Sequential ordering (ALL_ACCOMPLISHED_ORDERED) vs Concurrent.\n"
             "5. Safety Limits: Execution timeouts (e.g., FROM_GOAL_START(<600)).\n\n"
-            "OPERATING GUIDELINES:\n"
-            "- Ask 1 or at most 2 concise questions per turn. Never overwhelm the user.\n"
-            "- If the user names non-existent devices, point out the real available devices.\n"
-            "- Once all necessary slots are resolved, output a structured summary starting with '=== SCENARIO SUMMARY ===' "
-            "and ask the user to confirm ('Do you approve this specification?').\n\n"
+            "OPERATING GUIDELINES & CONVERSATION PHASES:\n"
+            "- PHASE 1 (CLARIFICATION): Ask 1 or at most 2 concise questions per turn. Never overwhelm the user.\n"
+            "- PHASE 2 (SUMMARY PROPOSAL): Once all necessary slots are resolved, output ONLY the '=== SCENARIO SUMMARY ===' "
+            "and ask the user 'Do you approve this specification?'. CRITICAL: Do NOT generate the <<<REFINED_PROMPT>>> block in this turn!\n"
+            "- PHASE 3 (PROMPT SYNTHESIS): ONLY after the user explicitly confirms or approves the summary in a subsequent turn, "
+            "generate the final prompt strictly wrapped between <<<REFINED_PROMPT>>> and <<</REFINED_PROMPT>>>.\n\n"
             "OUTPUT PROTOCOL WHEN USER CONFIRMS/APPROVES:\n"
-            "When the user approves the summary, do NOT output pseudo-code or raw code. "
-            "Generate a structured natural language prompt designed for a Goal-DSL generator model.\n"
-            "The prompt MUST follow this exact structure:\n"
-            "1. Broker Setup: Broker type (Redis by default), host ('localhost'), port (6379).\n"
-            "2. Entity Definitions: Name, type (sensor, actuator, hybrid), exact URI, broker source, and typed attributes.\n"
-            "3. Goal Definitions:\n"
-            "   - For EACH goal, you MUST explicitly state its exact Goal-DSL Type from the taxonomy above "
-            "(e.g., Type: EntityStateCondition, Type: Position, Type: CircularArea, Type: Complex, etc.).\n"
-            "   - Explicitly list all required properties: targets, expressions, tags (ENTER/AVOID), coordinates, "
-            "tolerances, sub-goal weights, execution strategies, and time constraints.\n"
-            "4. Scenario Definition: Scenario name, main Complex goal to execute, and concurrency setting.\n\n"
+            "When the user approves the summary, do NOT output pseudo-code, key-value lists, or YAML formats.\n"
+            "Instead, write a fluent, highly structured imperative English prompt designed for a Goal-DSL generator model.\n"
+            "Format the prompt into distinct paragraphs following this exact narrative structure:\n\n"
+            "• Paragraph 1 (Overview & Broker Setup):\n"
+            "  Write a command specifying the scenario theme and the broker details (e.g., 'Create a [Theme] scenario in Goal DSL using a Redis Broker on localhost at port 6379.').\n\n"
+            "• Paragraph 2 (Entity Definitions):\n"
+            "  Start with 'Define [N] entities:' and describe each entity in continuous prose. For every entity, specify its exact Goal-DSL type "
+            "(sensor, actuator, or hybrid), name, URI, source, and typed attributes (e.g., 'A hybrid entity named [Name] at the URI [URI] with float attributes for...').\n\n"
+            "• Paragraph 3 (Primitive Goal Declarations):\n"
+            "  Start with 'Define the following goals:' followed by sentences describing each primitive goal. You MUST explicitly name the exact "
+            "Goal-DSL class type for each goal (e.g., 'An EntityStateCondition goal named [Name] to ensure...', 'A Position goal named [Name] for [Entity] to reach [Point2D(x, y)] with a maximum deviation of [Dev].').\n\n"
+            "• Paragraph 4 (Complex Goal Composition):\n"
+            "  Describe grouping the sub-goals into a Complex goal. State the complex goal name, unique assigned weights, the exact execution strategy "
+            "(e.g., 'all accomplished ordered'), and any time constraints (e.g., 'finished within [N] seconds from the goal start').\n\n"
+            "• Paragraph 5 (Scenario Execution Statement):\n"
+            "  End with a single concluding command defining the final Scenario name that executes the Complex goal (e.g., 'Finally, create a Scenario named [Name] that executes the [ComplexGoal] goal.').\n\n"
             "Enclose the final prompt strictly between <<<REFINED_PROMPT>>> and <<</REFINED_PROMPT>>>.\n"
             "Do not add any text after <<</REFINED_PROMPT>>>."
         )
@@ -131,25 +151,25 @@ class RequirementRefiner:
 
         self.messages.append({"role": "assistant", "content": assistant_reply})
 
-        # Match tags regardless of whether the closing slash is present
+        # Match tags flexibly regardless of tag syntax quirks (e.g. <<<REFINED_PROMPT>>> ... <</REFINED_PROMPT>>>)
         match = re.search(
-            r"<<<REFINED_PROMPT>>>(.*?)(?:<<</?REFINED_PROMPT>>>|\Z)",
+            r"<<<REFINED_PROMPT>>>(.*?)(?:<+</?REFINED_PROMPT>+>+|\Z)",
             assistant_reply,
-            re.DOTALL,
+            re.DOTALL | re.IGNORECASE,
         )
 
         if match and match.group(1).strip():
             refined_prompt = match.group(1).strip()
-            # Clean up any stray tag fragments left behind
+            # Clean up any residual tag variants (e.g. <</REFINED_PROMPT>>>, <<<REFINED_PROMPT>>>, etc.)
             refined_prompt = re.sub(
-                r"<<</?REFINED_PROMPT>?>?", "", refined_prompt
+                r"<+</?REFINED_PROMPT>+>+", "", refined_prompt, flags=re.IGNORECASE
             ).strip()
 
             display_message = re.sub(
-                r"<<<REFINED_PROMPT>>>.*?(?:<<</?REFINED_PROMPT>>>|\Z)",
+                r"<<<REFINED_PROMPT>>>.*?(?:<+</?REFINED_PROMPT>+>+|\Z)",
                 "",
                 assistant_reply,
-                flags=re.DOTALL,
+                flags=re.DOTALL | re.IGNORECASE,
             ).strip()
 
             if not display_message:
