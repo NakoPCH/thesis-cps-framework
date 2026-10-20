@@ -121,9 +121,16 @@ def _query_llm_generator(messages):
     payload = {"model": MODEL, "messages": messages, "temperature": 0.0}
 
     try:
+        # Enforce 120-second execution/read timeout on the HTTP socket
         response = requests.post(
-            f"{BASE_URL}/chat/completions", headers=headers, json=payload
+            f"{BASE_URL}/chat/completions", 
+            headers=headers, 
+            json=payload, 
+            timeout=120
         )
+    except requests.exceptions.Timeout:
+        print("⏱️ API Error: Request timed out after 120 seconds.")
+        return None
     except Exception as e:
         print(f"❌ Connection error: {e}")
         return None
