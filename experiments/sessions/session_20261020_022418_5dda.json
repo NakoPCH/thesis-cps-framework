@@ -1,0 +1,194 @@
+{
+  "session_id": "session_20261020_022418_5dda",
+  "timestamp": "2026-10-20T02:34:03.293300",
+  "model": "cohere/north-mini-code:free",
+  "overall_status": "SUCCESS",
+  "total_latency_seconds": 584.48,
+  "world_model_file": "data\\world_models\\smarthome_world_model.yaml",
+  "world_model_snapshot": {
+    "simulation": {
+      "name": "streamsim"
+    },
+    "map": {
+      "width": 500,
+      "height": 500,
+      "resolution": 0.05
+    },
+    "world": {
+      "name": "SmartHomeWorld",
+      "places": [
+        "living_room",
+        "kitchen",
+        "hallway"
+      ],
+      "pois": [
+        {
+          "name": "ChargingDock",
+          "place": "living_room",
+          "pose": {
+            "x": 1.0,
+            "y": 1.0,
+            "theta": 0
+          }
+        },
+        {
+          "name": "KitchenCounter",
+          "place": "kitchen",
+          "pose": {
+            "x": 8.0,
+            "y": 3.0,
+            "theta": 0
+          }
+        },
+        {
+          "name": "FrontDoor",
+          "place": "hallway",
+          "pose": {
+            "x": 12.0,
+            "y": 0.5,
+            "theta": 0
+          }
+        }
+      ]
+    },
+    "robots": [
+      {
+        "name": "VacuumBot",
+        "mode": "simulation",
+        "place": "living_room",
+        "category": "actuators",
+        "pose": {
+          "x": 0.0,
+          "y": 0.0,
+          "theta": 0
+        },
+        "transports": {
+          "publishers": [
+            {
+              "topic": "smarthome.robot.vacuum",
+              "payload": {
+                "dustLevel": "number",
+                "battery": "number",
+                "position": "object"
+              }
+            }
+          ],
+          "subscribers": [
+            {
+              "topic": "smarthome.robot.vacuum",
+              "payload": {
+                "dustLevel": "number",
+                "battery": "number",
+                "position": "object"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "env_devices": {
+      "temperature_sensors": [
+        {
+          "name": "LivingRoomTempSensor",
+          "mode": "simulation",
+          "place": "living_room",
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "smarthome.sensors.temperature",
+                "payload": {
+                  "temperature": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "gas_sensors": [
+        {
+          "name": "KitchenGasSensor",
+          "mode": "simulation",
+          "place": "kitchen",
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "smarthome.sensors.gas",
+                "payload": {
+                  "co2": "number",
+                  "gasLevel": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "humidity_sensors": [],
+      "ph_sensors": [],
+      "pan_tilt": [],
+      "camera_sensors": [],
+      "distance_sensors": [],
+      "alarms_linear": [],
+      "alarms_area": [],
+      "ambient_light_sensor": [],
+      "microphones": [],
+      "relays": [],
+      "speakers": [],
+      "lights": [],
+      "thermostats": [],
+      "humidifiers": []
+    },
+    "actors": {
+      "humans": [],
+      "collectibles": [],
+      "sound_sources": [],
+      "qrs": [],
+      "barcodes": [],
+      "colors": [],
+      "texts": [],
+      "rfid_tags": [],
+      "fires": [],
+      "waters": []
+    }
+  },
+  "stage1_dialogue": {
+    "world_model_file": "data\\world_models\\smarthome_world_model.yaml",
+    "total_turns": 2,
+    "dialogue_turns": [
+      {
+        "turn": 1,
+        "user_input": "I want VacuumBot to execute a home safety patrol. when the LivingRoomTempSensor drops below 18.0, check that VacuumBot has at least 20% battery, send it to the FrontDoor to inspect, and then move it to the KitchenCounter. max deviation 1 and time constraint 500s",
+        "assistant_reply": "=== SCENARIO SUMMARY ===\n**Theme:** Home Safety Patrol\n\n**Entities:**\n- Define 2 entities:\n  1. A hybrid entity named **VacuumBot** at the URI `smarthome.robot.vacuum` with float attributes for `battery`, `position`, and `dustLevel`, sourced from the robot topic.\n  2. A sensor entity named **LivingRoomTempSensor** at the URI `smarthome.sensors.temperature` with a float attribute `temperature`, sourced from the temperature sensor topic.\n\n**Primitive Goals:**\n- Define the following goals:\n  1. An **EntityStateCondition** goal named `TempBelowThreshold` to ensure the `LivingRoomTempSensor.temperature` is less than `18.0`.\n  2. An **EntityStateCondition** goal named `BatterySufficient` to ensure the `VacuumBot.battery` is at least `20.0`.\n  3. A **Position** goal named `GoToFrontDoor` for **VacuumBot** to reach `Point2D(12.0, 0.5)` with a maximum deviation of `1.0`.\n  4. A **Position** goal named `GoToKitchenCounter` for **VacuumBot** to reach `Point2D(8.0, 3.0)` with a maximum deviation of `1.0`.\n\n**Complex Goal Composition:**\n- Group the four primitive goals into a **Complex** goal named `HomeSafetyPatrol`. Assign each sub‑goal a weight of `0.25`. Use the execution strategy **ALL_ACCOMPLISHED_ORDERED** (temperature → battery → frontDoor → kitchenCounter) and enforce a time constraint of `FROM_GOAL_START(<500)`.\n\n**Scenario Execution Statement:**\n- Finally, create a **Scenario** named `HomeSafetyPatrolScenario` that executes the `HomeSafetyPatrol` complex goal.\n\nDo you approve this specification?"
+      },
+      {
+        "turn": 2,
+        "user_input": "yes",
+        "assistant_reply": "<<<REFINED_PROMPT>>>\nCreate a Home Safety Patrol scenario in Goal DSL using a Redis Broker on localhost at port 6379.\n\nDefine 2 entities: a hybrid entity named VacuumBot at the URI smarthome.robot.vacuum with float attributes for battery, position, and dustLevel, sourced from the robot topic; and a sensor entity named LivingRoomTempSensor at the URI smarthome.sensors.temperature with a float attribute temperature, sourced from the temperature sensor topic.\n\nDefine the following goals: an EntityStateCondition goal named TempBelowThreshold to ensure the LivingRoomTempSensor.temperature is less than 18.0; an EntityStateCondition goal named BatterySufficient to ensure the VacuumBot.battery is at least 20.0; a Position goal named GoToFrontDoor for VacuumBot to reach Point2D(12.0, 0.5) with a maximum deviation of 1.0; and a Position goal named GoToKitchenCounter for VacuumBot to reach Point2D(8.0, 3.0) with a maximum deviation of 1.0.\n\nGroup the four primitive goals into a Complex goal named HomeSafetyPatrol, assigning each sub‑goal a weight of 0.25, using the execution strategy ALL_ACCOMPLISHED_ORDERED, and enforcing a time constraint of FROM_GOAL_START(<500).\n\nFinally, create a Scenario named HomeSafetyPatrolScenario that executes the HomeSafetyPatrol complex goal.\n<</REFINED_PROMPT>>>"
+      }
+    ],
+    "refined_prompt": "Create a Home Safety Patrol scenario in Goal DSL using a Redis Broker on localhost at port 6379.\n\nDefine 2 entities: a hybrid entity named VacuumBot at the URI smarthome.robot.vacuum with float attributes for battery, position, and dustLevel, sourced from the robot topic; and a sensor entity named LivingRoomTempSensor at the URI smarthome.sensors.temperature with a float attribute temperature, sourced from the temperature sensor topic.\n\nDefine the following goals: an EntityStateCondition goal named TempBelowThreshold to ensure the LivingRoomTempSensor.temperature is less than 18.0; an EntityStateCondition goal named BatterySufficient to ensure the VacuumBot.battery is at least 20.0; a Position goal named GoToFrontDoor for VacuumBot to reach Point2D(12.0, 0.5) with a maximum deviation of 1.0; and a Position goal named GoToKitchenCounter for VacuumBot to reach Point2D(8.0, 3.0) with a maximum deviation of 1.0.\n\nGroup the four primitive goals into a Complex goal named HomeSafetyPatrol, assigning each sub‑goal a weight of 0.25, using the execution strategy ALL_ACCOMPLISHED_ORDERED, and enforcing a time constraint of FROM_GOAL_START(<500).\n\nFinally, create a Scenario named HomeSafetyPatrolScenario that executes the HomeSafetyPatrol complex goal."
+  },
+  "stage2_verification": {
+    "status": "SUCCESS",
+    "run_id": "RUN-20261020-022510-8c96",
+    "total_attempts": 2,
+    "generated_code": "Broker<Redis> HomeRedis\n    host: 'localhost'\n    port: 6379\n    auth:\n        username: ''\n        password: ''\nend\n\nEntity LivingRoomTempSensor\n    type: sensor\n    uri: 'smarthome.sensors.temperature'\n    source: HomeRedis\n    attributes:\n        - temperature: float\nend\n\nEntity KitchenGasSensor\n    type: sensor\n    uri: 'smarthome.sensors.gas'\n    source: HomeRedis\n    attributes:\n        - gas: float\nend\n\nEntity VacuumBot\n    type: actuator\n    uri: 'smarthome.robot.vacuum'\n    source: HomeRedis\n    attributes:\n        - battery: float\n        - position: float\n        - dustLevel: float\nend\n\nGoal<EntityStateCondition> TempBelowThreshold\n    condition: (LivingRoomTempSensor.temperature < 18.0)\nend\n\nGoal<EntityStateCondition> BatterySufficient\n    condition: (VacuumBot.battery >= 20.0)\nend\n\nGoal<Position> GoToFrontDoor\n    entity: VacuumBot\n    position: Point2D(12.0, 0.5)\n    maxDeviation: 1.0\nend\n\nGoal<Position> GoToKitchenCounter\n    entity: VacuumBot\n    position: Point2D(8.0, 3.0)\n    maxDeviation: 1.0\nend\n\nGoal<Complex> HomeSafetyPatrol\n    goals:\n        - TempBelowThreshold -> 0.25\n        - BatterySufficient -> 0.25\n        - GoToFrontDoor -> 0.25\n        - GoToKitchenCounter -> 0.25\n    strategy: ALL_ACCOMPLISHED_ORDERED\n    timeConstraints:\n        - FROM_GOAL_START(<500)\nend\n\nScenario HomeSafetyPatrolScenario\n    goals:\n        - HomeSafetyPatrol\n    concurrent: False\nend",
+    "attempts": [
+      {
+        "attempt": 1,
+        "status": "FAILED",
+        "failed_tier": "Tier 2 (World Grounding)",
+        "generated_code": "Broker<Redis> HomeRedis\n    host: 'localhost'\n    port: 6379\n    auth:\n        username: ''\n        password: ''\nend\n\nEntity VacuumBot\n    type: sensor\n    uri: 'smarthome.robot.vacuum'\n    source: HomeRedis\n    attributes:\n        - battery: float\n        - position: float\n        - dustLevel: float\nend\n\nEntity LivingRoomTempSensor\n    type: sensor\n    uri: 'smarthome.sensors.temperature'\n    source: HomeRedis\n    attributes:\n        - temperature: float\nend\n\nGoal<EntityStateCondition> TempBelowThreshold\n    condition: (LivingRoomTempSensor.temperature < 18.0)\nend\n\nGoal<EntityStateCondition> BatterySufficient\n    condition: (VacuumBot.battery >= 20.0)\nend\n\nGoal<Position> GoToFrontDoor\n    entity: VacuumBot\n    position: Point2D(12.0, 0.5)\n    maxDeviation: 1.0\nend\n\nGoal<Position> GoToKitchenCounter\n    entity: VacuumBot\n    position: Point2D(8.0, 3.0)\n    maxDeviation: 1.0\nend\n\nGoal<Complex> HomeSafetyPatrol\n    goals:\n        - TempBelowThreshold -> 0.25\n        - BatterySufficient -> 0.25\n        - GoToFrontDoor -> 0.25\n        - GoToKitchenCounter -> 0.25\n    strategy: ALL_ACCOMPLISHED_ORDERED\n    timeConstraints:\n        - FROM_GOAL_START(<500)\nend\n\nScenario HomeSafetyPatrolScenario\n    goals:\n        - HomeSafetyPatrol\n    concurrent: False\nend",
+        "error_message": "- Role Mismatch: Entity 'VacuumBot' is declared as 'type: sensor', but in the physical world 'VacuumBot' is not registered as a sensor."
+      },
+      {
+        "attempt": 2,
+        "status": "SUCCESS",
+        "failed_tier": null,
+        "generated_code": "Broker<Redis> HomeRedis\n    host: 'localhost'\n    port: 6379\n    auth:\n        username: ''\n        password: ''\nend\n\nEntity LivingRoomTempSensor\n    type: sensor\n    uri: 'smarthome.sensors.temperature'\n    source: HomeRedis\n    attributes:\n        - temperature: float\nend\n\nEntity KitchenGasSensor\n    type: sensor\n    uri: 'smarthome.sensors.gas'\n    source: HomeRedis\n    attributes:\n        - gas: float\nend\n\nEntity VacuumBot\n    type: actuator\n    uri: 'smarthome.robot.vacuum'\n    source: HomeRedis\n    attributes:\n        - battery: float\n        - position: float\n        - dustLevel: float\nend\n\nGoal<EntityStateCondition> TempBelowThreshold\n    condition: (LivingRoomTempSensor.temperature < 18.0)\nend\n\nGoal<EntityStateCondition> BatterySufficient\n    condition: (VacuumBot.battery >= 20.0)\nend\n\nGoal<Position> GoToFrontDoor\n    entity: VacuumBot\n    position: Point2D(12.0, 0.5)\n    maxDeviation: 1.0\nend\n\nGoal<Position> GoToKitchenCounter\n    entity: VacuumBot\n    position: Point2D(8.0, 3.0)\n    maxDeviation: 1.0\nend\n\nGoal<Complex> HomeSafetyPatrol\n    goals:\n        - TempBelowThreshold -> 0.25\n        - BatterySufficient -> 0.25\n        - GoToFrontDoor -> 0.25\n        - GoToKitchenCounter -> 0.25\n    strategy: ALL_ACCOMPLISHED_ORDERED\n    timeConstraints:\n        - FROM_GOAL_START(<500)\nend\n\nScenario HomeSafetyPatrolScenario\n    goals:\n        - HomeSafetyPatrol\n    concurrent: False\nend",
+        "error_message": null
+      }
+    ]
+  }
+}

@@ -7,20 +7,30 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import yaml
+
 # Add src subdirectories to Python path for clean cross-stage imports
 SRC_DIR = Path(__file__).resolve().parent
 sys.path.append(str(SRC_DIR / "1_requirement_refinement"))
 sys.path.append(str(SRC_DIR / "2_constraint_generator"))
 
-from requirement_refiner import RequirementRefiner
-from verification_loop import generate_and_verify_dsl
+from requirement_refiner import RequirementRefiner  # type: ignore
+from verification_loop import generate_and_verify_dsl  # type: ignore
 
-from common.config import DATA_DIR, EXPERIMENTS_DIR, MAX_RETRIES, WORLD_MODELS_DIR
+from common.config import (
+    DATA_DIR,
+    EXPERIMENTS_DIR,
+    MAX_RETRIES,
+    MODEL,
+    WORLD_MODELS_DIR,
+)
 
 
 def run_pipeline(world_yaml_path: Path | None = None):
     session_start_time = time.time()
-    session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
+    session_id = (
+        f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
+    )
 
     print("=" * 70)
     print("   END-TO-END CPS SPECIFICATION & VERIFICATION PIPELINE")
@@ -42,7 +52,9 @@ def run_pipeline(world_yaml_path: Path | None = None):
     # STAGE 1: Interactive Requirement Refinement Dialogue
     # -------------------------------------------------------------------------
     print("\n[STAGE 1] Interactive Requirement Refinement Started.")
-    print("Type your operational goal in natural language (or 'exit'/'quit' to cancel).\n")
+    print(
+        "Type your operational goal in natural language (or 'exit'/'quit' to cancel).\n"
+    )
 
     while True:
         try:
@@ -145,12 +157,23 @@ def _save_pipeline_json_log(
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_file_path = logs_dir / f"{session_id}.json"
 
+    # Snapshot the world model YAML content if file exists
+    world_snapshot = None
+    if world_yaml_path and world_yaml_path.exists():
+        try:
+            with open(world_yaml_path, "r", encoding="utf-8") as wf:
+                world_snapshot = yaml.safe_load(wf)
+        except Exception as ex:
+            print(f"Warning: Failed to snapshot world model YAML: {ex}")
+
     session_artifact = {
         "session_id": session_id,
         "timestamp": datetime.now().isoformat(),
+        "model": MODEL,
         "overall_status": overall_status,
         "total_latency_seconds": duration_sec,
         "world_model_file": str(world_yaml_path) if world_yaml_path else None,
+        "world_model_snapshot": world_snapshot,
         "stage1_dialogue": stage1_data,
         "stage2_verification": stage2_data,
     }

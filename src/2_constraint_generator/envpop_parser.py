@@ -22,15 +22,15 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
         "lights": "luminosity",
         "gas_sensors": "co2",
         "ph_sensors": "ph",
-        "alarms_area": "area_alarm",
-        "alarms_linear": "linear_alarm",
-        "distance_sensors": "distance",
-        "speakers": "audio",
+        "alarms_area": "security",
+        "alarms_linear": "security",
+        "distance_sensors": "other",
+        "speakers": "other",
         "relays": "switch",
     }
 
     world_summary = {
-        "simulation": data.get("simulation", {}).get("name", "streamsim"),
+        "simulation": (data.get("simulation") or {}).get("name", "streamsim"),
         "locations": [],
         "sensors": {},
         "actuators": {},
@@ -42,6 +42,7 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
             "co2": {"sensors": [], "actuators": []},
             "ph": {"sensors": [], "actuators": []},
             "security": {"sensors": [], "actuators": []},
+            "switch": {"sensors": [], "actuators": []},
             "other": {"sensors": [], "actuators": []},
         },
         "all_valid_device_names": set(),
@@ -49,21 +50,24 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
         "all_topics": {"publishers": [], "subscribers": []},
     }
 
-    # 1. Parse Locations (Places and POIs - kept separate from hardware devices)
-    for poi in data.get("world", {}).get("pois", []):
+    world_section = data.get("world") or {}
+
+    # 1. Parse Locations (Places and POIs)
+    for poi in world_section.get("pois") or []:
         name = poi.get("name")
         if name:
             world_summary["locations"].append(name)
             world_summary["all_valid_entity_names"].add(name)
 
-    for place in data.get("world", {}).get("places", []):
+    for place in world_section.get("places") or []:
         name = place.get("name") if isinstance(place, dict) else place
         if name:
             world_summary["locations"].append(name)
             world_summary["all_valid_entity_names"].add(name)
 
     # 2. Parse Environment Devices (Sensors & Actuators)
-    for device_type, device_list in data.get("env_devices", {}).items():
+    env_devices = data.get("env_devices") or {}
+    for device_type, device_list in env_devices.items():
         if not isinstance(device_list, list):
             continue
 
@@ -71,22 +75,32 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
             device_type, "security" if "alarm" in device_type else "other"
         )
 
+        # Dynamic safety check: Ensure metric bucket exists
+        if metric not in world_summary["entities_by_metric"]:
+            world_summary["entities_by_metric"][metric] = {
+                "sensors": [],
+                "actuators": [],
+            }
+
         for dev in device_list:
+            if not isinstance(dev, dict):
+                continue
+
             name = dev.get("name")
             if not name:
                 continue
 
             category = dev.get("category", "")
-            transports = dev.get("transports", {})
+            transports = dev.get("transports") or {}
             pub_topics = [
                 p.get("topic")
-                for p in transports.get("publishers", [])
-                if p.get("topic")
+                for p in (transports.get("publishers") or [])
+                if isinstance(p, dict) and p.get("topic")
             ]
             sub_topics = [
                 s.get("topic")
-                for s in transports.get("subscribers", [])
-                if s.get("topic")
+                for s in (transports.get("subscribers") or [])
+                if isinstance(s, dict) and s.get("topic")
             ]
 
             device_info = {
@@ -97,7 +111,7 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
                 "hz": dev.get("hz"),
                 "operation": dev.get("operation"),
                 "range": dev.get("range"),
-                "pose": dev.get("pose", {}),
+                "pose": dev.get("pose") or {},
                 "pub_topics": pub_topics,
                 "sub_topics": sub_topics,
             }
@@ -113,16 +127,25 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
                 or "alarm" in device_type
             ):
                 world_summary["sensors"][name] = device_info
-                world_summary["entities_by_metric"][metric]["sensors"].append(name)
+                world_summary["entities_by_metric"][metric]["sensors"].append(
+                    name
+                )
             else:
                 world_summary["actuators"][name] = device_info
-                world_summary["entities_by_metric"][metric]["actuators"].append(name)
+                world_summary["entities_by_metric"][metric]["actuators"].append(
+                    name
+                )
 
-    # 3. Dynamic Actors & Robots (Robots are effectors/hybrids)
-    for actor_type, actor_list in data.get("actors", {}).items():
+    # 3. Dynamic Actors & Robots
+    actors_section = data.get("actors") or {}
+    for actor_type, actor_list in actors_section.items():
         if isinstance(actor_list, list):
             for i, actor in enumerate(actor_list):
-                name = actor.get("name") or f"{actor_type}_{actor.get('id', i + 1)}"
+                if not isinstance(actor, dict):
+                    continue
+                name = (
+                    actor.get("name") or f"{actor_type}_{actor.get('id', i + 1)}"
+                )
                 world_summary["actors"][name] = {
                     "name": name,
                     "type": actor_type,
@@ -135,28 +158,31 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
                 world_summary["all_valid_device_names"].add(name)
                 world_summary["all_valid_entity_names"].add(name)
 
-    for robot in data.get("robots", []):
+    robots_section = data.get("robots") or []
+    for robot in robots_section:
+        if not isinstance(robot, dict):
+            continue
         name = robot.get("name")
         if not name:
             continue
 
-        transports = robot.get("transports", {})
+        transports = robot.get("transports") or {}
         pub_topics = [
             p.get("topic")
-            for p in transports.get("publishers", [])
-            if p.get("topic")
+            for p in (transports.get("publishers") or [])
+            if isinstance(p, dict) and p.get("topic")
         ]
         sub_topics = [
             s.get("topic")
-            for s in transports.get("subscribers", [])
-            if s.get("topic")
+            for s in (transports.get("subscribers") or [])
+            if isinstance(s, dict) and s.get("topic")
         ]
 
         robot_info = {
             "name": name,
             "type": "robot",
             "category": robot.get("category", "actuators"),
-            "pose": robot.get("pose", {}),
+            "pose": robot.get("pose") or {},
             "pub_topics": pub_topics,
             "sub_topics": sub_topics,
         }
@@ -176,6 +202,7 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
     )
     return world_summary
 
+
 if __name__ == "__main__":
     current_dir = Path(__file__).parent
     yaml_file = WORLD_MODELS_DIR / "world_model.yaml"
@@ -188,15 +215,3 @@ if __name__ == "__main__":
         print(f"Loaded Simulation: {results['simulation']}")
         print(f"Total Valid Entities: {len(results['all_valid_entity_names'])}")
         print("=" * 50)
-
-        print("\n--- All Valid Entity Names ---")
-        pprint(results["all_valid_entity_names"])
-
-        print("\n--- Sensors & Actuators by Metric ---")
-        pprint(results["entities_by_metric"])
-
-        print("\n--- Parsed Actors ---")
-        pprint(results["actors"])
-
-        print("\n--- Parsed Locations (POIs) ---")
-        pprint(results["locations"])

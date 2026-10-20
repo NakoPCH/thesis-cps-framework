@@ -1,9 +1,9 @@
-Create a home safety patrol scenario in Goal DSL using a Redis Broker on localhost at port 6379.
+Create a Forklift Operational Constraints scenario in Goal DSL using a Redis Broker on localhost at port 6379.
 
-Define 2 entities: a hybrid entity named VacuumBot at the URI smarthome.robot.vacuum with float attributes for dustLevel, battery, and position, sourced from the Redis Broker; and a sensor entity named LivingRoomTempSensor at the URI smarthome.sensors.temperature with a float attribute for temperature, also sourced from the Redis Broker.
+Define 1 entity: a hybrid entity named ForkliftBot at the URI 'warehouse.robot.forklift' with float attributes for speed, forkHeight, and battery, and a dict attribute for position, sourced from the warehouse robot module.
 
-Define the following goals: an EntityStateCondition goal named CheckTemperatureCondition to ensure LivingRoomTempSensor.temperature < 18.0; an EntityStateCondition goal named CheckBatteryCondition to ensure VacuumBot.battery >= 20.0; a Position goal named MoveToFrontDoor for VacuumBot to reach Point2D(12.0, 0.5) with a maximum deviation of 1.0 meter; and a Position goal named MoveToKitchenCounter for VacuumBot to reach Point2D(8.0, 3.0) with a maximum deviation of 1.0 meter.
+Define the following goals: An EntityStateCondition goal named BatteryCondition to ensure the ForkliftBot's battery attribute is greater than 20.0. An EntityStateCondition goal named SpeedCondition to ensure the ForkliftBot's speed attribute does not exceed 10.0. A RectangleArea goal named AreaEnter for the ForkliftBot to ENTER a square region of side 10.0 whose center coincides with the LoadingDock coordinates (5.0, 15.0); the rectangle's bottom‑left edge is therefore (0.0, 10.0), with lengthX = 10.0, lengthY = 10.0, and tag ENTER.
 
-A Complex goal named HomeSafetyPatrolComplex bundles the four primitive goals with unique weights 1.0, 2.0, 3.0, and 4.0 respectively, employing the execution strategy ALL_ACCOMPLISHED_ORDERED to enforce sequential completion, and includes a time constraint FROM_GOAL_START(<300) to ensure the entire patrol finishes within 300 seconds from the goal start.
+Group these sub‑goals into a Complex goal named ForkliftOperationalConstraints, assigning each sub‑goal a weight of 1.0, and specify the execution strategy as ALL_ACCOMPLISHED_ORDERED, requiring the entire set to be satisfied in the listed sequence within 350 seconds from the goal start (FROM_GOAL_START(<350)).
 
-Finally, create a Scenario named HomeSafetyPatrolScenario that executes the HomeSafetyPatrolComplex goal.
+Finally, create a Scenario named ForkliftOperationalScenario that executes the ForkliftOperationalConstraints goal.

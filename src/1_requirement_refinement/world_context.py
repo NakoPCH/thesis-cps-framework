@@ -17,7 +17,7 @@ def extract_detailed_world_context(yaml_file_path: Optional[Path | str]) -> str:
         with open(yaml_file_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
-        lines = ["ACTIVE 2D PHYSICAL WORLD CONSTRAINTS & CAPABILITIES:"]
+        lines = ["WORLD MODEL / ACTIVE 2D PHYSICAL WORLD CONSTRAINTS & CAPABILITIES:"]
 
         # 1. Parse Robots / Actuators with their payload attributes
         lines.append("- Robots & Actuators:")

@@ -104,3 +104,10 @@ RUN-20261016-180008-306d,2026-10-16 18:00:16,google/gemma-4-26b-a4b-it:free,1,3,
 RUN-20261016-180008-306d,2026-10-16 18:00:23,google/gemma-4-26b-a4b-it:free,2,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
 RUN-20261016-185936-bbbe,2026-10-16 18:59:52,cohere/north-mini-code:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
 RUN-20261016-220301-e5c5,2026-10-16 22:03:12,cohere/north-mini-code:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
+RUN-20261020-020752-46d9,2026-10-20 02:08:08,cohere/north-mini-code:free,1,3,FAILED,"Tier 1, Tier 2",Tier 1 (Syntax),31,maxDeviation: 0,[*] Validation failed with error(s): C:\Users\Okan\Desktop\Thesus\2.  | Code\thesis-cps-framework\data\llm_created_file.goal:31:5: Expected  | 'timeConstraints:' or 'end' => 'ENTER     *maxDeviati'
+RUN-20261020-022302-677e,2026-10-20 02:23:19,cohere/north-mini-code:free,1,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
+RUN-20261020-022510-8c96,2026-10-20 02:25:30,cohere/north-mini-code:free,1,3,FAILED,"Tier 1, Tier 2",Tier 2 (World Grounding),-,-,"- Role Mismatch: Entity 'VacuumBot' is declared as 'type: sensor', but in the physical world 'VacuumBot' is not registered as a sensor."
+RUN-20261020-022510-8c96,2026-10-20 02:34:03,cohere/north-mini-code:free,2,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-
+RUN-20261020-025445-470a,2026-10-20 02:55:02,cohere/north-mini-code:free,1,3,FAILED,"Tier 1, Tier 2",Tier 2 (World Grounding),-,-,"- Role Mismatch: Entity 'ForkliftBot' is declared as 'type: sensor', but in the physical world 'ForkliftBot' is not registered as a sensor."
+RUN-20261020-031110-7dc4,2026-10-20 03:11:35,cohere/north-mini-code:free,1,3,FAILED,"Tier 1, Tier 2",Tier 2 (World Grounding),-,-,"- Role Mismatch: Entity 'ForkliftBot' is declared as 'type: sensor', but in the physical world 'ForkliftBot' is not registered as a sensor."
+RUN-20261020-031110-7dc4,2026-10-20 03:11:46,cohere/north-mini-code:free,2,3,SUCCESS,"Tier 1, Tier 2",-,-,-,-

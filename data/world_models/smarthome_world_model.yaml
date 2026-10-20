@@ -1,0 +1,100 @@
+simulation:
+  name: streamsim
+map:
+  width: 500
+  height: 500
+  resolution: 0.05
+world:
+  name: SmartHomeWorld
+  places:
+    - living_room
+    - kitchen
+    - hallway
+  pois:
+    - name: ChargingDock
+      place: living_room
+      pose:
+        x: 1.0
+        'y': 1.0
+        theta: 0
+    - name: KitchenCounter
+      place: kitchen
+      pose:
+        x: 8.0
+        'y': 3.0
+        theta: 0
+    - name: FrontDoor
+      place: hallway
+      pose:
+        x: 12.0
+        'y': 0.5
+        theta: 0
+robots:
+  - name: VacuumBot
+    mode: simulation
+    place: living_room
+    category: actuators
+    pose:
+      x: 0.0
+      'y': 0.0
+      theta: 0
+    transports:
+      publishers:
+        - topic: smarthome.robot.vacuum
+          payload:
+            dustLevel: number
+            battery: number
+            position: object
+      subscribers:
+        - topic: smarthome.robot.vacuum
+          payload:
+            dustLevel: number
+            battery: number
+            position: object
+env_devices:
+  temperature_sensors:
+    - name: LivingRoomTempSensor
+      mode: simulation
+      place: living_room
+      category: sensors
+      transports:
+        publishers:
+          - topic: smarthome.sensors.temperature
+            payload:
+              temperature: number
+  gas_sensors:
+    - name: KitchenGasSensor
+      mode: simulation
+      place: kitchen
+      category: sensors
+      transports:
+        publishers:
+          - topic: smarthome.sensors.gas
+            payload:
+              co2: number
+              gasLevel: number
+  humidity_sensors: []
+  ph_sensors: []
+  pan_tilt: []
+  camera_sensors: []
+  distance_sensors: []
+  alarms_linear: []
+  alarms_area: []
+  ambient_light_sensor: []
+  microphones: []
+  relays: []
+  speakers: []
+  lights: []
+  thermostats: []
+  humidifiers: []
+actors:
+  humans: []
+  collectibles: []
+  sound_sources: []
+  qrs: []
+  barcodes: []
+  colors: []
+  texts: []
+  rfid_tags: []
+  fires: []
+  waters: []

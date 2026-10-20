@@ -1,0 +1,149 @@
+simulation:
+  name: streamsim
+map:
+  width: 1000
+  height: 1000
+  resolution: 0.02
+  obstacles:
+    lines:
+      - x1: 0.0
+        y1: 0.0
+        x2: 40.0
+        y2: 0.0
+      - x1: 40.0
+        y1: 0.0
+        x2: 40.0
+        y2: 40.0
+      - x1: 40.0
+        y1: 40.0
+        x2: 0.0
+        y2: 40.0
+      - x1: 0.0
+        y1: 40.0
+        x2: 0.0
+        y2: 0.0
+world:
+  name: WarehouseWorld
+  places:
+    - warehouse_zone_a
+  pois:
+    - name: ChargingDock
+      place: warehouse_zone_a
+      pose:
+        x: 2.0
+        'y': 2.0
+        theta: 0
+    - name: LoadingDock
+      place: warehouse_zone_a
+      pose:
+        x: 5.0
+        'y': 15.0
+        theta: 0
+    - name: StorageRackB12
+      place: warehouse_zone_a
+      pose:
+        x: 25.0
+        'y': 30.0
+        theta: 0
+  properties:
+    smoke_level:
+      operation: constant
+      operation_parameters:
+        constant:
+          value: 0.0
+robots:
+  - name: ForkliftBot
+    mode: simulation
+    place: warehouse_zone_a
+    category: actuators
+    pose:
+      x: 0.0
+      'y': 0.0
+      theta: 0
+    transports:
+      publishers:
+        - topic: warehouse.robot.forklift
+          payload:
+            battery: number
+            speed: number
+            position: object
+            forkHeight: number
+      subscribers:
+        - topic: warehouse.robot.forklift
+          payload:
+            battery: number
+            speed: number
+            position: object
+            forkHeight: number
+env_devices:
+  pan_tilt: []
+  ph_sensors: []
+  temperature_sensors: []
+  humidity_sensors: []
+  gas_sensors:
+    - name: SmokeDetector
+      mode: simulation
+      place: warehouse_zone_a
+      operation: constant
+      pose:
+        x: 10.0
+        'y': 10.0
+        theta: 0
+      state: 'on'
+      proximity_mode: false
+      proximity_distance: 10
+      hz: 1
+      operation_parameters:
+        constant:
+          value: 0.0
+      category: sensors
+      transports:
+        publishers:
+          - topic: warehouse.sensors.smoke
+            payload:
+              smokePpm: number
+              temperature: number
+  camera_sensors: []
+  distance_sensors: []
+  alarms_linear: []
+  alarms_area: []
+  ambient_light_sensor: []
+  microphones: []
+  relays:
+    - name: ConveyorBelt
+      mode: simulation
+      place: warehouse_zone_a
+      operation: constant
+      pose:
+        x: 5.0
+        'y': 14.0
+        theta: 0
+      state: 'on'
+      proximity_mode: false
+      proximity_distance: 0
+      hz: 1
+      operation_parameters:
+        constant:
+          value: 0.0
+      category: actuators
+      transports:
+        publishers:
+          - topic: warehouse.actuators.conveyor
+            payload:
+              speed: number
+              state: number
+  speakers: []
+  lights: []
+  thermostats: []
+  humidifiers: []
+actors:
+  humans: []
+  collectibles: []
+  sound_sources: []
+  qrs: []
+  barcodes: []
+  colors: []
+  texts: []
+  rfid_tags: []
+  fires: []
+  waters: []
