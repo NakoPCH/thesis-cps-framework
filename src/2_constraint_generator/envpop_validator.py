@@ -57,23 +57,24 @@ def _normalize(name: str) -> str:
 def match_dsl_entity_to_world(
     dsl_entity: dict, world_model: dict
 ) -> str | None:
-    """Matches a DSL Entity declaration to a real physical device or robot in the world model.
-
-    Locations (POIs/places) are excluded.
-    """
+    """Matches a DSL Entity declaration to a real physical device or robot in the world model."""
     dsl_norm = _normalize(dsl_entity["name"])
     valid_devices = world_model.get("all_valid_device_names", [])
 
-    # 1. Exact normalized name match (e.g., 'WaterBot' matches 'water_bot')
+    # 1. Exact normalized name match
     for dev_name in valid_devices:
         if _normalize(dev_name) == dsl_norm:
             return dev_name
 
-    # 2. Topic/URI Endpoint Match: check if the declared URI matches the device's actual topic
+    # 2. Topic/URI Endpoint Match
     dsl_uri = dsl_entity.get("uri", "").strip()
+    sensors = world_model.get("sensors", {})
+    actuators = world_model.get("actuators", {})
+    actors = world_model.get("actors", {})
+
     if dsl_uri:
         for dev_name in valid_devices:
-            dev_info = world_model["sensors"].get(dev_name) or world_model["actuators"].get(dev_name)
+            dev_info = sensors.get(dev_name) or actuators.get(dev_name) or actors.get(dev_name)
             if dev_info:
                 topics = dev_info.get("pub_topics", []) + dev_info.get("sub_topics", [])
                 if dsl_uri in topics and _normalize(dev_name) in dsl_norm:
@@ -96,6 +97,10 @@ def validate_goal_dsl_against_world(
         )
 
     valid_devices = world_model.get("all_valid_device_names", [])
+    sensors = world_model.get("sensors", {})
+    actuators = world_model.get("actuators", {})
+    actors = world_model.get("actors", {})
+
     dsl_to_world_map = {}
 
     for entity in declared_entities:
@@ -103,7 +108,7 @@ def validate_goal_dsl_against_world(
         e_type = entity["type"]
         matched_world_entity = match_dsl_entity_to_world(entity, world_model)
 
-        # 1. Device Existence Check (Catches hallucinated names)
+        # 1. Device Existence Check
         if not matched_world_entity:
             errors.append(
                 f"Grounding Error: Entity '{e_name}' (URI: '{entity['uri']}') does not exist "
@@ -114,9 +119,9 @@ def validate_goal_dsl_against_world(
         dsl_to_world_map[e_name] = matched_world_entity
 
         # 2. Category & Role Check
-        is_world_sensor = matched_world_entity in world_model["sensors"]
-        is_world_actuator = matched_world_entity in world_model["actuators"]
-        is_world_actor = matched_world_entity in world_model["actors"]
+        is_world_sensor = matched_world_entity in sensors
+        is_world_actuator = matched_world_entity in actuators
+        is_world_actor = matched_world_entity in actors
 
         if e_type == "sensor" and not is_world_sensor:
             errors.append(
@@ -135,16 +140,14 @@ def validate_goal_dsl_against_world(
             )
 
         # 3. Physical Metric Consistency Check
-        if is_world_sensor:
-            device_info = world_model["sensors"][matched_world_entity]
+        if is_world_sensor and matched_world_entity in sensors:
+            device_info = sensors[matched_world_entity]
             actual_metric = device_info.get("metric")
             for attr in entity["attributes"].keys():
                 attr_lower = attr.lower()
                 if (
-                    "temp" in attr_lower
-                    and actual_metric != "temperature"
-                    or "humid" in attr_lower
-                    and actual_metric != "humidity"
+                    ("temp" in attr_lower and actual_metric != "temperature")
+                    or ("humid" in attr_lower and actual_metric != "humidity")
                 ):
                     errors.append(
                         f"Metric Inconsistency: Entity '{e_name}' measures '{actual_metric}', "

@@ -1,0 +1,35 @@
+Broker<MQTT> LocalEMQX
+    host: 'localhost'
+    port: 1883
+    auth:
+        username: ''
+        password: ''
+end
+
+Entity ForkliftBot
+    type: actuator
+    uri: 'warehouse.robot.forklift'
+    source: LocalEMQX
+    attributes:
+        - speed: float
+        - forkHeight: float
+        - battery: float
+        - position: dict
+end
+
+Goal<EntityStateCondition> BatteryCondition
+    condition: (ForkliftBot.battery > 20.0)
+end
+
+Goal<EntityStateCondition> SpeedViolation
+    condition: (ForkliftBot.speed > 10.0)
+end
+
+
+Scenario ForkliftOperationalScenario
+    goals:
+        - BatteryCondition
+    fatals:
+        - SpeedViolation
+    concurrent: False
+end

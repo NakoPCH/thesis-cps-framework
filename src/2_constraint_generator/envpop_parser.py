@@ -127,14 +127,10 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
                 or "alarm" in device_type
             ):
                 world_summary["sensors"][name] = device_info
-                world_summary["entities_by_metric"][metric]["sensors"].append(
-                    name
-                )
+                world_summary["entities_by_metric"][metric]["sensors"].append(name)
             else:
                 world_summary["actuators"][name] = device_info
-                world_summary["entities_by_metric"][metric]["actuators"].append(
-                    name
-                )
+                world_summary["entities_by_metric"][metric]["actuators"].append(name)
 
     # 3. Dynamic Actors & Robots
     actors_section = data.get("actors") or {}
@@ -143,9 +139,7 @@ def parse_envpop_model(yaml_file_path: str | Path) -> dict:
             for i, actor in enumerate(actor_list):
                 if not isinstance(actor, dict):
                     continue
-                name = (
-                    actor.get("name") or f"{actor_type}_{actor.get('id', i + 1)}"
-                )
+                name = actor.get("name") or f"{actor_type}_{actor.get('id', i + 1)}"
                 world_summary["actors"][name] = {
                     "name": name,
                     "type": actor_type,
