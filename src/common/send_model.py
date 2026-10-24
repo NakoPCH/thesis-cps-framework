@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import time
+from typing import Optional
 
 from commlib.msg import RPCMessage
 from commlib.node import Node
@@ -19,8 +20,82 @@ class ExecuteModelMsg(RPCMessage):
         result: str = ""
 
 
+def deploy_goal_model(
+    model_content: str,
+    broker_type: str = "mqtt",
+    uid: Optional[str] = None,
+    node_name: str = "orchestrator_deployer",
+    host: Optional[str] = None,
+    port: Optional[int] = None,
+) -> ExecuteModelMsg.Response:
+    """
+    Deploys a raw Goal-DSL model string to goaldsl-executor via RPC.
+
+    Can be imported and called directly by any thesis orchestrator module.
+    """
+    load_dotenv()
+
+    # 1. Select Transport and Connection Parameters
+    if broker_type == "redis":
+        from commlib.transports.redis import ConnectionParameters
+
+        conn_params = ConnectionParameters(
+            host=host or os.getenv("REDIS_HOST", "localhost"),
+            port=port or int(os.getenv("REDIS_PORT", "6379")),
+            username=os.getenv("REDIS_USERNAME", ""),
+            password=os.getenv("REDIS_PASSWORD", ""),
+        )
+    elif broker_type == "amqp":
+        from commlib.transports.amqp import ConnectionParameters
+
+        conn_params = ConnectionParameters()
+    elif broker_type == "mqtt":
+        from commlib.transports.mqtt import ConnectionParameters
+
+        conn_params = ConnectionParameters(
+            host=host or os.getenv("MQTT_HOST", "localhost"),
+            port=port or int(os.getenv("MQTT_PORT", "1883")),
+            username=os.getenv("MQTT_USERNAME", ""),
+            password=os.getenv("MQTT_PASSWORD", ""),
+        )
+    else:
+        raise ValueError(f"Unsupported broker type: {broker_type}")
+
+    # 2. Setup RPC Client Node
+    node = Node(
+        node_name=node_name,
+        connection_params=conn_params,
+        heartbeats=False,
+    )
+
+    target_uid = uid or os.getenv("UID", "TEST")
+    rpc_name = os.getenv("EXECUTE_MODEL_RPC", "goaldsl.{ID}.deploy_sync").replace(
+        "{ID}", target_uid
+    )
+
+    rpc = node.create_rpc_client(msg_type=ExecuteModelMsg, rpc_name=rpc_name)
+    node.run()
+
+    # 3. Dispatch RPC Request
+    try:
+        msg = ExecuteModelMsg.Request(model=model_content)
+        resp = rpc.call(msg)
+        return resp
+    finally:
+        node.stop()
+
+
+def deploy_goal_file(
+    file_path: str, broker_type: str = "mqtt", **kwargs
+) -> ExecuteModelMsg.Response:
+    """Helper to read a .goal file from disk and deploy it."""
+    with open(file_path, "r", encoding="utf-8") as f:
+        model_str = f.read()
+    return deploy_goal_model(model_str, broker_type=broker_type, **kwargs)
+
+
 if __name__ == "__main__":
-    # Load the repository .env while allowing shell variables to override it.
+    # Retains full CLI backward compatibility
     load_dotenv()
 
     parser = argparse.ArgumentParser()
@@ -28,43 +103,5 @@ if __name__ == "__main__":
     parser.add_argument("broker", nargs="?", default="mqtt")
     args = parser.parse_args()
 
-    broker = args.broker
-    if broker == "redis":
-        from commlib.transports.redis import ConnectionParameters
-    elif broker == "amqp":
-        from commlib.transports.amqp import ConnectionParameters
-    elif broker == "mqtt":
-        from commlib.transports.mqtt import ConnectionParameters
-    else:
-        print("Not a valid broker-type was given!")
-        sys.exit(1)
-
-    with open(args.model_file, "r") as f:
-        model = f.read()
-
-    if broker == "redis":
-        conn_params = ConnectionParameters(
-            host=os.getenv("REDIS_HOST", "localhost"),
-            port=int(os.getenv("REDIS_PORT", "6379")),
-            username=os.getenv("REDIS_USERNAME", ""),
-            password=os.getenv("REDIS_PASSWORD", ""),
-        )
-    else:
-        conn_params = ConnectionParameters()
-
-    node = Node(
-        node_name="test_hello",
-        connection_params=conn_params,
-        heartbeats=False,
-    )
-    uid = os.getenv("UID", "TEST")
-    rpc_name = os.getenv("EXECUTE_MODEL_RPC", "goaldsl.{ID}.deploy_sync").replace(
-        "{ID}", uid
-    )
-    print(f"Calling RPC: {rpc_name}")
-    rpc = node.create_rpc_client(msg_type=ExecuteModelMsg, rpc_name=rpc_name)
-    node.run()
-
-    msg = ExecuteModelMsg.Request(model=model)
-    resp = rpc.call(msg)
-    print(resp)
+    response = deploy_goal_file(args.model_file, broker_type=args.broker)
+    print(response)
