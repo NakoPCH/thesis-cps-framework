@@ -2,9 +2,6 @@
 
 import argparse
 import os
-import sys
-import time
-from typing import Optional
 
 from commlib.msg import RPCMessage
 from commlib.node import Node
@@ -23,10 +20,10 @@ class ExecuteModelMsg(RPCMessage):
 def deploy_goal_model(
     model_content: str,
     broker_type: str = "mqtt",
-    uid: Optional[str] = None,
+    uid: str | None = None,
     node_name: str = "orchestrator_deployer",
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    host: str | None = None,
+    port: int | None = None,
 ) -> ExecuteModelMsg.Response:
     """
     Deploys a raw Goal-DSL model string to goaldsl-executor via RPC.
