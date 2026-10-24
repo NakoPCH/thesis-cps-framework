@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
+import argparse
 import os
 import sys
 import time
-from pathlib import Path
 
 from commlib.msg import RPCMessage
 from commlib.node import Node
@@ -23,10 +23,12 @@ if __name__ == "__main__":
     # Load the repository .env while allowing shell variables to override it.
     load_dotenv()
 
-    if len(sys.argv) < 2:
-        broker = "redis"
-    else:
-        broker = str(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("model_file", help="Path to the model file to send")
+    parser.add_argument("broker", nargs="?", default="mqtt")
+    args = parser.parse_args()
+
+    broker = args.broker
     if broker == "redis":
         from commlib.transports.redis import ConnectionParameters
     elif broker == "amqp":
@@ -37,9 +39,7 @@ if __name__ == "__main__":
         print("Not a valid broker-type was given!")
         sys.exit(1)
 
-    model_file = Path(__file__).resolve().parents[2] / "data" / "test_broker.goal"
-
-    with open(model_file, "r") as f:
+    with open(args.model_file, "r") as f:
         model = f.read()
 
     if broker == "redis":
