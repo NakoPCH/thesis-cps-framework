@@ -7,7 +7,7 @@ import sys
 import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox, ttk
-from typing import Any, Dict, Optional
+from typing import Any
 
 import goal_dsl
 from commlib.node import Node
@@ -16,8 +16,8 @@ from dotenv import load_dotenv
 
 def get_connection_parameters(
     broker_type: str = "mqtt",
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    host: str | None = None,
+    port: int | None = None,
 ):
     """Builds transport connection parameters matching send_model.py."""
     load_dotenv()
@@ -48,16 +48,16 @@ class TelemetryInjectorApp:
     def __init__(
         self,
         root: tk.Tk,
-        model_file: Optional[str] = None,
-        model_content: Optional[str] = None,
+        model_file: str | None = None,
+        model_content: str | None = None,
         broker_type: str = "mqtt",
-        host: Optional[str] = None,
-        port: Optional[int] = None,
+        host: str | None = None,
+        port: int | None = None,
     ):
         self.root = root
         self.broker_type = broker_type
-        self.entries_map: Dict[str, Dict[str, tuple[tk.Entry, str]]] = {}
-        self.publishers: Dict[str, Any] = {}
+        self.entries_map: dict[str, dict[str, tuple[tk.Entry, str]]] = {}
+        self.publishers: dict[str, Any] = {}
 
         # 1. Parse .goal model via goal_dsl
         print("[*] Parsing Goal-DSL model...")
@@ -193,7 +193,7 @@ class TelemetryInjectorApp:
         return ""
 
     def _publish_telemetry(self, entity):
-        payload: Dict[str, Any] = {}
+        payload: dict[str, Any] = {}
         attr_dict = self.entries_map[entity.name]
 
         for attr_name, (entry, attr_type) in attr_dict.items():
@@ -233,11 +233,11 @@ class TelemetryInjectorApp:
 
 
 def launch_telemetry_ui(
-    model_file: Optional[str] = None,
-    model_content: Optional[str] = None,
+    model_file: str | None = None,
+    model_content: str | None = None,
     broker_type: str = "mqtt",
-    host: Optional[str] = None,
-    port: Optional[int] = None,
+    host: str | None = None,
+    port: int | None = None,
 ):
     """Programmatic entry point for thesis orchestrators."""
     root = tk.Tk()

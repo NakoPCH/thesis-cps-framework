@@ -5,7 +5,7 @@ import os
 import sys
 
 # Import functions from the separate scripts
-from send_data2model import launch_telemetry_ui
+from send_data2executor import launch_telemetry_ui
 from send_model import deploy_goal_file
 
 
