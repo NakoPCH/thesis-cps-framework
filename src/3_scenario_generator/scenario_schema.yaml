@@ -1,0 +1,64 @@
+# ==============================================================================
+# CPS SCENARIO SPECIFICATION SCHEMA
+# ==============================================================================
+# Purpose: Declarative, domain-agnostic scenario definition for CPS goal testing.
+# Dynamics Model: Piecewise linear continuous signals + discrete event triggers.
+# Math rule for continuous segments: value(t) = segment.value + segment.rate * (t - segment.time)
+# ==============================================================================
+
+scenario_id: "example_scenario_01"          # Unique identifier (string)
+category: "fault"                           # Category: "operational" | "fault" | "security"
+description: "Brief summary of the test scenario objective and injected anomaly"
+duration: 120.0                             # Total scenario run-time in seconds (float > 0)
+
+# ------------------------------------------------------------------------------
+# Continuous Signals: Monitored telemetry, sensors, or metrics drifting over time.
+# Rule: A segment starting at t_i is active on [t_i, t_{i+1}). The last segment
+# remains active on [t_k, duration].
+# Rate semantics:
+#   rate = 0.0  -> constant steady value
+#   rate < 0.0  -> linear decay (e.g., battery consumption, cooling)
+#   rate > 0.0  -> linear growth (e.g., gas concentration, heating)
+# Discontinuous step: specify a new segment at time t with an abrupt jump in 'value'.
+# ------------------------------------------------------------------------------
+continuous_signals:
+  - topic: "streamsim.gn_robot_27.battery"
+    segments:
+      # Segment 1: Nominal operation (0s to 40s)
+      - time: 0.0
+        value: 100.0
+        rate: -0.25                         # Loses 0.25% per second; reaches 90.0% at t=40.0
+
+      # Segment 2: Accelerated drain / hardware fault (40s to 120s)
+      - time: 40.0
+        value: 90.0
+        rate: -1.50                         # Loses 1.50% per second
+
+  - topic: "streamsim.world.gas_sensor.data"
+    segments:
+      # Segment 1: Clean ambient air
+      - time: 0.0
+        value: 400.0
+        rate: 0.0                           # Constant 400 ppm baseline
+
+      # Segment 2: Gas leak ramp
+      - time: 35.0
+        value: 400.0
+        rate: 20.0                          # Rises 20 ppm per second until end of scenario
+
+# ------------------------------------------------------------------------------
+# Discrete Events: Instantaneous state switches, actuator commands, or network injections.
+# Rule: Triggered once at the exact time offset 'time'.
+# ------------------------------------------------------------------------------
+discrete_events:
+  - time: 45.0
+    topic: "streamsim.gn_robot_27.actuator.relay.set"
+    payload:
+      state: 0
+    description: "Actuator relay involuntarily trips off"
+
+  - time: 70.0
+    topic: "streamsim.world.alarm.linear_alarm.sn_linearAlarm_23.data"
+    payload:
+      value: 1
+    description: "Perimeter alarm triggered"
