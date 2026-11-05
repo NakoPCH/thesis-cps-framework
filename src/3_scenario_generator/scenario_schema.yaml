@@ -6,59 +6,109 @@
 # Math rule for continuous segments: value(t) = segment.value + segment.rate * (t - segment.time)
 # ==============================================================================
 
-scenario_id: "example_scenario_01"          # Unique identifier (string)
-category: "fault"                           # Category: "operational" | "fault" | "security"
-description: "Brief summary of the test scenario objective and injected anomaly"
-duration: 120.0                             # Total scenario run-time in seconds (float > 0)
+scenario_id: "example_multi_entity_scenario"
+category: "operational" # Permitted values: operational, fault, security
+description: "Demonstration of multiple entities, multi-axis motion, and standardized discrete events."
+duration: 120.0 # Total scenario duration in seconds (must be > 0.0)
 
 # ------------------------------------------------------------------------------
 # Continuous Signals: Monitored telemetry, sensors, or metrics drifting over time.
-# Rule: A segment starting at t_i is active on [t_i, t_{i+1}). The last segment
-# remains active on [t_k, duration].
+# Multiple signals can target different attributes on the same broker topic,
+# or target entirely different physical entities in the world model.
+#
+# Multi-dimensional coordinates/vectors (e.g. position) must be split into
+# separate scalar signals using dot notation in 'attribute:' (e.g., position.x).
+#
+# Segment rule: Active on [t_i, t_{i+1}). Final segment active on [t_k, duration].
 # Rate semantics:
 #   rate = 0.0  -> constant steady value
-#   rate < 0.0  -> linear decay (e.g., battery consumption, cooling)
-#   rate > 0.0  -> linear growth (e.g., gas concentration, heating)
-# Discontinuous step: specify a new segment at time t with an abrupt jump in 'value'.
+#   rate < 0.0  -> linear decay (e.g., resource drainage, temperature cooling)
+#   rate > 0.0  -> linear growth (e.g., speed ramp, forward translation)
 # ------------------------------------------------------------------------------
 continuous_signals:
-  - topic: "streamsim.gn_robot_27.battery"
+  # Entity A - Attribute 1 (Scalar resource metric)
+  - topic: "example.robot.telemetry"
+    attribute: "battery"
     segments:
-      # Segment 1: Nominal operation (0s to 40s)
       - time: 0.0
         value: 100.0
-        rate: -0.25                         # Loses 0.25% per second; reaches 90.0% at t=40.0
+        rate: -0.2
+      - time: 60.0
+        value: 88.0
+        rate: -1.0
 
-      # Segment 2: Accelerated drain / hardware fault (40s to 120s)
-      - time: 40.0
-        value: 90.0
-        rate: -1.50                         # Loses 1.50% per second
-
-  - topic: "streamsim.world.gas_sensor.data"
+  # Entity A - Attribute 2 (Linear velocity)
+  - topic: "example.robot.telemetry"
+    attribute: "speed"
     segments:
-      # Segment 1: Clean ambient air
       - time: 0.0
-        value: 400.0
-        rate: 0.0                           # Constant 400 ppm baseline
+        value: 0.0
+        rate: 0.2
+      - time: 20.0
+        value: 4.0
+        rate: 0.0
 
-      # Segment 2: Gas leak ramp
-      - time: 35.0
-        value: 400.0
-        rate: 20.0                          # Rises 20 ppm per second until end of scenario
+  # Entity A - Attribute 3.1 (Multi-axis coordinate: X-axis movement)
+  - topic: "example.robot.telemetry"
+    attribute: "position.x"
+    segments:
+      - time: 0.0
+        value: 0.0
+        rate: 1.5
+      - time: 40.0
+        value: 60.0
+        rate: 0.0
+
+  # Entity A - Attribute 3.2 (Multi-axis coordinate: Y-axis movement)
+  - topic: "example.robot.telemetry"
+    attribute: "position.y"
+    segments:
+      - time: 0.0
+        value: 0.0
+        rate: 0.0
+      - time: 40.0
+        value: 0.0
+        rate: 0.5
+
+  # Entity A - Attribute 4 (Demonstrating an instantaneous step-jump/glitch)
+  # Preceding segment actively drifts with rate: -0.2 and implicitly ends at t=50.0.
+  # The new segment at t=50.0 immediately assumes the jump value (10.0) without
+  # creating a duplicate timestamp, and can continue with any rate (zero or non-zero rates before and/or after instantenous step is okay.).
+  - topic: "example.robot.telemetry"
+    attribute: "sensor_status"
+    segments:
+      - time: 0.0
+        value: 20.0
+        rate: -0.2
+      - time: 50.0
+        value: 10.0
+        rate: 0.5
+
+  # Entity B - Attribute 1 (Environmental sensor)
+  - topic: "example.sensor.ambient"
+    attribute: "temperature"
+    segments:
+      - time: 0.0
+        value: 22.0
+        rate: 0.0
+      - time: 75.0
+        value: 22.0
+        rate: 0.8
 
 # ------------------------------------------------------------------------------
 # Discrete Events: Instantaneous state switches, actuator commands, or network injections.
-# Rule: Triggered once at the exact time offset 'time'.
+# Standardized format matching continuous signals: specifies target topic, attribute, and assigned value.
+# Triggered once at the exact timestamp 'time'. (Optional: use [] if none needed).
 # ------------------------------------------------------------------------------
 discrete_events:
-  - time: 45.0
-    topic: "streamsim.gn_robot_27.actuator.relay.set"
-    payload:
-      state: 0
-    description: "Actuator relay involuntarily trips off"
+  - time: 30.0
+    topic: "example.actuator.conveyor"
+    attribute: "state"
+    value: 1
+    description: "Actuator state activation"
 
-  - time: 70.0
-    topic: "streamsim.world.alarm.linear_alarm.sn_linearAlarm_23.data"
-    payload:
-      value: 1
-    description: "Perimeter alarm triggered"
+  - time: 90.0
+    topic: "example.actuator.alarm"
+    attribute: "active"
+    value: true
+    description: "Alarm state activation"

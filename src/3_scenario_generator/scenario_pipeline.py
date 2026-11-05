@@ -8,6 +8,7 @@ specification and physical world model.
 
 import csv
 import os
+import re
 import sys
 import time
 import uuid
@@ -104,7 +105,7 @@ def _query_llm_generator(
     messages: List[Dict[str, str]], 
     temperature: float = 0.7
 ) -> Optional[str]:
-    """Handles API request dispatching with configurable temperature."""
+    """Handles API request dispatching with configurable temperature and robust YAML extraction."""
     headers = {
         "Authorization": f"Bearer {TOKEN}",
         "HTTP-Referer": "https://github.com/your-username/thesis",
@@ -115,7 +116,6 @@ def _query_llm_generator(
         "model": MODEL,
         "messages": messages,
         "temperature": temperature,
-        # Optional: include max_tokens as a safety net, or remove if preferred
         "max_tokens": 2048,
     }
 
@@ -148,16 +148,16 @@ def _query_llm_generator(
         print(f"   ❌ Provider returned unexpected payload:\n{data}")
         return None
 
-    generated_yaml = data["choices"][0]["message"]["content"].strip()
+    raw_content = data["choices"][0]["message"]["content"].strip()
 
-    # Strip markdown code fences if present
-    if generated_yaml.startswith(CODE_FENCE):
-        lines = generated_yaml.splitlines()
-        if lines and lines[0].startswith(CODE_FENCE):
-            lines = lines[1:]
-        if lines and lines[-1].startswith(CODE_FENCE):
-            lines = lines[:-1]
-        generated_yaml = "\n".join(lines).strip()
+    # Extract clean YAML from markdown code fences, ignoring any conversational preamble
+    match = re.search(r"```(?:yaml)?\s*\n(.*?)\n```", raw_content, re.DOTALL | re.IGNORECASE)
+    if match:
+        generated_yaml = match.group(1).strip()
+    else:
+        # Fallback: Isolate YAML content starting from scenario_id if fences were omitted
+        scen_match = re.search(r"(scenario_id\s*:.*)", raw_content, re.DOTALL)
+        generated_yaml = scen_match.group(1).strip() if scen_match else raw_content
 
     return generated_yaml
 

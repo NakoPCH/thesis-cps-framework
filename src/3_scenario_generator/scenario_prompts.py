@@ -32,22 +32,23 @@ TARGET CATEGORY: "operational" (Operational Stress & Goal Boundary Violation)
 CONCEPT:
 An operational scenario models a physically realistic run where all hardware,
 sensors, and communication links function normally (no broken devices or cyber
-attacks), BUT environmental conditions, workload, or natural resource consumption
-cause one or more requirements/thresholds in the Goal-DSL (.goal) specification
-to be violated.
+attacks), BUT environmental conditions, heavy workload, or natural resource
+consumption cause one or more requirements/thresholds in the Goal-DSL (.goal)
+specification to fail, remain uncompleted, or trigger an explicit fatal goal.
 
 HOW TO DESIGN THIS SCENARIO:
-1. Inspect the provided .goal specification and identify specific numerical
-   thresholds, safety bounds, invariants, or temporal deadlines.
-2. Select relevant continuous telemetry topics from the World Model.
-3. Start signals at nominal, safe baseline values at time 0.0.
-4. Apply realistic, physically plausible rates of change (slopes) such that at
-   least one monitored metric naturally drifts across a .goal threshold during
-   the scenario duration (e.g., gradual resource/energy depletion below a
-   required minimum, or steady ambient environmental drift exceeding an allowed
-   operating band).
-5. You may also include normal operational state transitions in 'discrete_events'
-   if appropriate for the environment.
+- Inspect the provided .goal specification and identify numerical thresholds,
+  safety bounds, invariants, unachieved achievement targets, or fatal conditions.
+- Select the relevant broker publisher topic and target attribute names from the World Model.
+- For multidimensional metrics (such as 2D/3D coordinates or positions), declare
+  independent continuous signals for each axis using sub-attribute dot notation
+  (e.g., attribute: "position.x" and attribute: "position.y").
+- Start signals at nominal, safe baseline values at time 0.0.
+- Apply realistic rates of change (slopes) such that at least one monitored metric
+  naturally drifts across a .goal threshold, breaches an invariant, or triggers
+  a fatal goal/condition during the duration.
+- 'discrete_events' is OPTIONAL. If your scenario does not involve discrete
+  actuator commands, leave 'discrete_events: []'.
 """,
     "fault": """
 TARGET CATEGORY: "fault" (Hardware, Sensor, or Component Malfunction)
@@ -58,20 +59,22 @@ communication failures that disrupt the system and test whether the Goal-DSL
 specification detects or safely handles abnormal component behavior.
 
 HOW TO DESIGN THIS SCENARIO:
-1. Inspect the .goal specification and World Model to identify critical sensors,
-   internal metrics, or actuators that the mission depends on.
-2. Begin with nominal baseline operation starting at time 0.0.
-3. At a specific mid-scenario timestamp, inject one or more realistic faults
-   using the schema primitives:
-   - Sensor Freeze / Lockup: Transition a changing signal to a segment with
-     'rate: 0.0' so it remains stuck at a stale value.
-   - Sensor Glitch / Out-of-Bounds Spike: Create a new segment with an abrupt,
-     discontinuous jump in 'value' (e.g., an impossible physical reading, zero
-     drop-out, or extreme hardware spike).
-   - Accelerated Degradation / Runaway Drift: Transition a signal from a mild
-     nominal rate to a steep, abnormal degradation slope.
-   - Component / Actuator Trip: Use 'discrete_events' to simulate an involuntary
-     state reset, power-off, or failure state on a device topic.
+- Inspect the .goal specification and World Model to identify critical sensors,
+  internal metrics, or actuators that the mission depends on.
+- Begin with nominal baseline operation starting at time 0.0.
+- At a specific mid-scenario timestamp, inject one or more realistic faults:
+  * Sensor Freeze / Lockup: Transition a signal to a segment with 'rate: 0.0'
+    so it remains stuck at a stale value.
+  * Sensor Glitch / Abrupt Discontinuity: Create a segment with an instantaneous,
+    discontinuous jump in 'value' (e.g., an impossible spike, sudden zero drop-out,
+    or wild out-of-bounds reading). Step-jumps are completely valid fault primitives.
+  * Accelerated Degradation / Runaway Drift: Transition a signal from a mild
+    nominal rate to a steep abnormal degradation slope.
+  * Component / Actuator Trip: Use 'discrete_events' ONLY if an actual actuator
+    topic experiences an involuntary power-off, trip, or state reset.
+- If all injected faults are sensor-level (freezes, spikes, drift), leave
+  'discrete_events: []'. NEVER invent diagnostic text or events on unrelated
+  topics to bypass topic isolation.
 """,
     "security": """
 TARGET CATEGORY: "security" (Adversarial / Cyber-Physical Broker Attack)
@@ -83,21 +86,20 @@ or unauthorized command injection) aimed at violating system safety, deceiving
 the monitor, or hijacking actuators.
 
 HOW TO DESIGN THIS SCENARIO:
-1. Analyze the .goal specification to find high-consequence conditions, alarms,
-   safety thresholds, or controllable actuators.
-2. Begin with normal baseline behavior at time 0.0.
-3. At a strategic timestamp, simulate an adversarial attack using the schema's
-   continuous and discrete primitives:
-   - False Data Injection (FDI) / Sensor Spoofing: Hijack a continuous telemetry
-     topic in 'continuous_signals' by injecting a deceptive jump in 'value' or a
-     manipulated 'rate' (e.g., spoofing a sudden critical hazard reading to force
-     an emergency abort, or pinning a compromised sensor to a fake safe constant
-     value via 'rate: 0.0' to mask an unsafe drift).
-   - Unauthorized Command Injection: Use 'discrete_events' to publish malicious,
-     unauthorized state overrides or control payloads directly to actuator,
-     switch, or alarm topics.
-   - State Chatter / Oscillation Attack: Inject multiple closely-spaced
-     'discrete_events' that rapidly toggle a device state to destabilize control.
+- Analyze the .goal specification to find high-consequence conditions, alarms,
+  safety thresholds, or controllable actuators.
+- Begin with normal baseline behavior at time 0.0.
+- At a strategic timestamp, simulate an adversarial attack:
+  * False Data Injection (FDI) / Sensor Spoofing: Hijack a continuous telemetry
+    attribute by injecting an abrupt malicious jump in 'value' or a manipulated 'rate'
+    (e.g., spoofing a hazard reading or pinning a sensor to a fake safe constant
+    via 'rate: 0.0' to conceal an unsafe condition).
+  * Unauthorized Command Injection: Use 'discrete_events' to publish malicious,
+    unauthorized state overrides directly to real actuator control topics.
+  * State Chatter / Oscillation Attack: Inject closely-spaced 'discrete_events'
+    that rapidly toggle a device state to destabilize control.
+- If the attack is purely sensor spoofing / FDI over continuous telemetry,
+  leave 'discrete_events: []'.
 """,
 }
 
@@ -109,31 +111,34 @@ SYSTEM_PROMPT = """You are an expert Cyber-Physical Systems (CPS) Verification a
 Your task is to autonomously invent and generate a complete, deterministic test scenario in YAML format to evaluate a formal Goal-DSL (.goal) specification within a given Physical World Model.
 
 CORE PRINCIPLES & CONSTRAINTS:
-1. DOMAIN AGNOSTICISM & CREATIVITY:
-   - Adapt completely to whatever CPS environment is described in the World Model and .goal file.
-   - Actively analyze the specific thresholds, entity names, metrics, and logic inside the .goal file to craft a creative, tailored scenario rather than a generic boilerplate.
-2. COMPLETE DESCRIPTIVENESS:
-   - Every scenario must be 100% self-contained. Do not assume an external simulator fills in "normal" behavior.
-   - Every signal included in 'continuous_signals' MUST start with an initial segment at 'time: 0.0' and define piecewise linear segments across the timeline.
-   - Mathematical rule for continuous segments:
-     value(t) = segment.value + segment.rate * (t - segment.time)
-     * rate = 0.0 means a constant value.
-     * rate < 0.0 means linear decay.
-     * rate > 0.0 means linear growth.
-     * A sudden step-change or spike at time t is modeled by starting a new segment at time t with a different 'value'.
-3. STRICT WORLD GROUNDING:
-   - You MUST ONLY use topics and entity names that exist in the provided Physical World Model.
-   - Never invent or hallucinate device names, sensor names, or topics not grounded in the world context.
-4. FUNCTIONAL TOPIC ISOLATION:
-   - A specific topic string may appear in 'continuous_signals' OR 'discrete_events', NEVER in both.
-   - If you need an instantaneous jump on a continuous signal, add a new segment under 'continuous_signals' rather than creating a discrete event on that same topic.
-5. TEMPORAL MONOTONICITY:
-   - Within any signal's 'segments' list, 'time' values must be strictly increasing (0.0 < t_1 < t_2 <= duration).
-   - All timestamps in 'continuous_signals' and 'discrete_events' must be >= 0.0 and <= duration.
-6. OUTPUT FORMAT:
-   - Output ONLY valid, raw YAML adhering strictly to the provided schema structure.
-   - Do NOT wrap the output in explanations, prose, or markdown commentary.
-   - Do NOT output any # comments or copy schema comment headers. The output must be pure, clean YAML data keys and values only.
+- DOMAIN AGNOSTICISM & CREATIVITY:
+  Adapt completely to whatever CPS environment is described in the World Model and .goal file. Actively analyze the specific thresholds, entity names, metrics, and logic inside the .goal file to craft a creative, tailored scenario rather than a generic boilerplate.
+- COMPLETE DESCRIPTIVENESS:
+  Every scenario must be 100% self-contained. Do not assume an external simulator fills in "normal" behavior. Every signal included in 'continuous_signals' MUST start with an initial segment at 'time: 0.0' and define piecewise linear segments across the timeline.
+  Mathematical rule for continuous segments:
+    value(t) = segment.value + segment.rate * (t - segment.time)
+    * rate = 0.0 means a constant value.
+    * rate < 0.0 means linear decay.
+    * rate > 0.0 means linear growth.
+    * An abrupt step-change or glitch spike at time t is modeled by starting a new segment at time t with a discontinuous 'value'.
+- STRICT BROKER TOPIC & ATTRIBUTE SEPARATION:
+  * In both 'continuous_signals' and 'discrete_events', the 'topic' field MUST be an exact communication broker topic declared in the World Model.
+  * Both 'continuous_signals' and 'discrete_events' MUST specify the target property using the separate 'attribute' key (e.g., attribute: "battery", attribute: "state").
+  * For 'discrete_events', assign the new state directly using 'value:' (e.g., value: 1 or value: true). Do NOT output a nested 'payload' dictionary.
+  * For multidimensional/nested variables (such as 2D/3D coordinates or vector states), represent each scalar axis as an independent continuous signal using dot notation in 'attribute' (e.g., attribute: "position.x", attribute: "position.y").
+  * NEVER invent composite topics or use DSL entity syntax in topics (do NOT write '<EntityName>.<attribute>'). Topics and attributes must always remain in their separate designated schema keys.
+- FUNCTIONAL TOPIC ISOLATION:
+  * A specific broker topic string may appear in 'continuous_signals' OR 'discrete_events', NEVER in both.
+  * 'discrete_events' is OPTIONAL. If your scenario does not require discrete actuator commands, leave 'discrete_events: []'. NEVER invent fake events on unrelated topics.
+- STRICT TEMPORAL MONOTONICITY & STEP JUMPS:
+  * Within any signal's 'segments' list, 'time' values must be strictly increasing (0.0 <= t_0 < t_1 < ... <= duration).
+  * All timestamps in 'continuous_signals' and 'discrete_events' must be >= 0.0 and <= duration.
+  * NEVER emit two segments with the identical timestamp.
+  * To model an instantaneous step-jump, glitch, or state transition at timestamp T, start the new segment directly at 'time: T' with the new target 'value'. The preceding segment implicitly terminates at T without requiring an end-marker segment.
+- OUTPUT FORMAT:
+  * Output ONLY valid, raw YAML adhering strictly to the provided schema structure.
+  * Do NOT wrap the output in explanations, prose, or markdown commentary.
+  * Do NOT copy # comments from the schema or output any commented lines. Generate pure YAML key-value data only.
 """
 
 
@@ -159,8 +164,11 @@ def _format_grounding_inventory(
     if sub_topics:
         lines.append(f"- Declared Subscriber Topics: {', '.join(sub_topics)}")
     lines.append(
-        "IMPORTANT: Every topic in your YAML must match one of the declared topics above "
-        "(replacing {UID} if present) or explicitly contain one of the Valid Entity Names."
+        "CRITICAL TOPIC & ATTRIBUTE RULES:\n"
+        "1. Every 'topic' entry in your YAML must strictly match one of the declared publisher or subscriber topics above.\n"
+        "2. To target an entity's attribute, place the declared publisher topic in 'topic:' and the target field name in 'attribute:'.\n"
+        "3. For 2D/3D coordinates or vector quantities (e.g., position), define separate continuous signals using dot notation in 'attribute:' (e.g., attribute: 'position.x', attribute: 'position.y').\n"
+        "4. 'discrete_events' is OPTIONAL. If no discrete actuator transitions are needed, write 'discrete_events: []'."
     )
     return "\n".join(lines)
 
@@ -172,15 +180,7 @@ def build_scenario_generation_prompt(
     world_summary: Optional[dict[str, Any]] = None,
     schema_template: Optional[str] = None,
 ) -> str:
-    """Constructs the generation prompt for a single scenario category.
-
-    Args:
-        category: One of 'operational', 'fault', or 'security'.
-        goal_dsl_content: Raw text of the generated .goal file from Stage 2.
-        world_context_str: Detailed world description from world_context.py.
-        world_summary: Optional parsed dictionary from envpop_parser.py.
-        schema_template: Optional raw text of scenario_schema.yaml (auto-loaded if None).
-    """
+    """Constructs the generation prompt for a single scenario category."""
     cat_key = category.strip().lower()
     if cat_key not in CATEGORY_INSTRUCTIONS:
         raise ValueError(
@@ -211,9 +211,8 @@ def build_scenario_generation_prompt(
         "================================================================================\n"
         "4. REQUIRED YAML SCHEMA TEMPLATE & FORMAT\n"
         "================================================================================\n"
-        "Follow the exact structural keys shown in the schema template below (note that\n"
-        "the entity/topic names inside the template are illustrative examples only—you\n"
-        "MUST replace them with the actual entities and topics from Section 2 & 3 above):\n\n"
+        "Follow the structural keys shown below. Map user requirements to actual topics "
+        "and attributes from Section 2 & 3:\n\n"
         f"{CODE_FENCE}yaml\n"
         f"{schema_text.strip()}\n"
         f"{CODE_FENCE}\n\n"
@@ -221,10 +220,14 @@ def build_scenario_generation_prompt(
         "5. FINAL CHECKLIST BEFORE GENERATING\n"
         "================================================================================\n"
         f'- Set `category: "{cat_key}"`.\n'
-        f"- Give `scenario_id` a descriptive snake_case name reflecting your specific '{cat_key}' scenario.\n"
-        "- Ensure every signal in `continuous_signals` starts at `time: 0.0` and has strictly increasing segment timestamps (`time` <= `duration`).\n"
-        "- Ensure no topic appears in both `continuous_signals` and `discrete_events`.\n"
-        "- Ensure all topics reference real entities/topics from Section 2.\n"
+        f"- Give `scenario_id` a descriptive snake_case name reflecting your '{cat_key}' test.\n"
+        "- In `continuous_signals`, use the exact broker topic in `topic:` and the specific variable in `attribute:`.\n"
+        "- In `discrete_events`, format each event with `time`, `topic`, `attribute`, and `value` (do NOT output a `payload:` block).\n"
+        "- For 2D/3D vectors or coordinates, use dot notation in `attribute:` (e.g., `position.x`, `position.y`).\n"
+        "- If the scenario does not require actuator switching, leave `discrete_events: []`.\n"
+        "- Ensure every continuous signal has an initial segment starting at `time: 0.0`.\n"
+        "- Ensure all segment timestamps are strictly increasing (`0.0 <= t_0 < t_1 < ... <= duration`).\n"
+        "- Do NOT copy any `#` comments from the schema or output any commented lines.\n"
         "- Output ONLY the raw YAML content.\n"
     )
     return prompt
@@ -269,8 +272,11 @@ def build_scenario_repair_prompt(
         "================================================================================\n"
         f"- Fix every error listed in Section 1 while preserving the creative '{cat_key}' scenario intent.\n"
         f'- Ensure `category: "{cat_key}"` is preserved.\n'
-        "- Verify that all segment timestamps are strictly increasing (`0.0 < t_1 < t_2 <= duration`).\n"
-        "- Verify that no topic is duplicated across `continuous_signals` and `discrete_events`.\n"
-        "- Output ONLY the corrected raw YAML content with no markdown prose or explanations.\n"
+        "- Ensure every continuous signal defines both 'topic' (declared broker topic) and 'attribute' (target field, using dot notation like 'position.x' if compound).\n"
+        "- Ensure every discrete event defines 'time', 'topic', 'attribute', and 'value'.\n"
+        "- If discrete events on a topic conflict with continuous telemetry, move or remove the discrete event ('discrete_events: []' is completely valid).\n"
+        "- Verify that all segment timestamps are strictly increasing (`0.0 <= t_0 < t_1 < ... <= duration`).\n"
+        "- Do NOT output any `#` comments or markdown explanations.\n"
+        "- Output ONLY the corrected raw YAML content.\n"
     )
     return prompt

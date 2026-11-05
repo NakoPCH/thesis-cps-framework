@@ -1,0 +1,64 @@
+scenario_id: "forklift_battery_spoofing_and_speed_hijack"
+category: "security"
+description: "A dual-stage adversarial attack: first, a False Data Injection (FDI) attack spoofs the battery level to stay above the 20.0 threshold despite depletion; second, an unauthorized command injection hijacks the speed attribute to trigger a fatal SpeedViolation."
+duration: 100.0
+continuous_signals:
+  - topic: "warehouse.robot.forklift"
+    attribute: "battery"
+    segments:
+      - time: 0.0
+        value: 50.0
+        rate: -0.5
+      - time: 40.0
+        value: 30.0
+        rate: 0.0
+      - time: 40.0
+        value: 80.0
+        rate: 0.0
+      - time: 100.0
+        value: 80.0
+        rate: 0.0
+  - topic: "warehouse.robot.forklift"
+    attribute: "speed"
+    segments:
+      - time: 0.0
+        value: 2.0
+        rate: 0.0
+      - time: 60.0
+        value: 2.0
+        rate: 0.0
+      - time: 60.0
+        value: 15.0
+        rate: 0.0
+      - time: 100.0
+        value: 15.0
+        rate: 0.0
+  - topic: "warehouse.robot.forklift"
+    attribute: "position.x"
+    segments:
+      - time: 0.0
+        value: 2.0
+        rate: 0.1
+      - time: 100.0
+        value: 12.0
+        rate: 0.0
+  - topic: "warehouse.robot.forklift"
+    attribute: "position.y"
+    segments:
+      - time: 0.0
+        value: 2.0
+        rate: 0.1
+      - time: 100.0
+        value: 12.0
+        rate: 0.0
+discrete_events:
+  - time: 40.0
+    topic: "warehouse.robot.forklift"
+    attribute: "battery"
+    value: 80.0
+    description: "FDI Attack: Spoofing battery to high constant value to hide depletion"
+  - time: 60.0
+    topic: "warehouse.robot.forklift"
+    attribute: "speed"
+    value: 15.0
+    description: "Unauthorized Command Injection: Forcing speed above safety threshold"

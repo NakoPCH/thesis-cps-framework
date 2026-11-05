@@ -26,8 +26,11 @@ TOKEN = os.getenv("OPENROUTER_API_TOKEN")
 BASE_URL = "https://openrouter.ai/api/v1"
 
 # Model Selection
-# MODEL = "liquid/lfm-2.5-2.6b:free"    google/gemma-4-31b-it:free
-MODEL = "cohere/north-mini-code:free"
+# MODEL = "liquid/lfm-2.5-2.6b:free"
+#MODEL = "cohere/north-mini-code:free"
+#MODEL = "google/gemma-4-31b-it:free"
+MODEL = "google/gemma-4-26b-a4b-it:free"
+# MODEL = "openrouter/free"
 JUDGE_MODEL = MODEL
 
 # Verification Loop Configuration

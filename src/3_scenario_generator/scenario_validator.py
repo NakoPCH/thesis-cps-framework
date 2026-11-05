@@ -76,7 +76,7 @@ class ValidationResult:
         """Returns the complete error block ready to inject into LLM reflection prompts."""
         if self.is_valid:
             return "Validation PASSED with no errors."
-        
+
         feedback_lines = [
             f"Validation FAILED with {len(self.errors)} error(s). Please review and correct each error below:"
         ]
@@ -114,7 +114,6 @@ def _get_key_line_and_text(
     if not start_line or not source_lines:
         return None, None
 
-    # Scan forward from the entity's starting line (window of 15 lines)
     for idx in range(start_line - 1, min(len(source_lines), start_line + 15)):
         line_str = source_lines[idx]
         if re.search(rf"^\s*-?\s*{re.escape(key_name)}\s*:", line_str):
@@ -125,24 +124,19 @@ def _get_key_line_and_text(
     return start_line, None
 
 
-def _topic_matches_world(
-    topic: str, declared_topics: set[str], known_entities: set[str]
-) -> bool:
-    """Verifies whether a topic exists in the parsed world model or matches wildcards."""
+def _topic_matches_world(topic: str, declared_topics: set[str]) -> bool:
+    """Strictly checks whether a topic exists in declared publisher/subscriber topics,
+
+    supporting template wildcards like {UID} and *.
+    """
     if topic in declared_topics:
         return True
 
-    # 1. Check against template topics with wildcards (e.g., streamsim.{UID}....)
     for declared in declared_topics:
         pattern = re.sub(r"\{UID\}", r"[^.]+", re.escape(declared))
         pattern = pattern.replace(r"\*", r".*")
         if re.fullmatch(pattern, topic):
             return True
-
-    # 2. Check if a valid recognized entity name is an isolated token in the topic path
-    topic_tokens = set(re.split(r"[/._]", topic))
-    if any(entity in topic_tokens for entity in known_entities):
-        return True
 
     return False
 
@@ -151,17 +145,12 @@ def validate_scenario(
     scenario_input: str | Path | dict[str, Any],
     world_model_path: Optional[str | Path] = None,
 ) -> ValidationResult:
-    """Validates an LLM-generated scenario against schema, math, time, and world constraints.
-
-    Provides exact row numbers, source lines, and repair hints for any detected failure.
-    """
+    """Validates an LLM-generated scenario against schema, math, time, and world constraints."""
     errors: list[ValidationError] = []
     warnings: list[str] = []
     source_lines: list[str] = []
 
-    # --------------------------------------------------------------------------
     # 1. Parsing & Ingestion with Line Tracking
-    # --------------------------------------------------------------------------
     if isinstance(scenario_input, (str, Path)):
         input_path = Path(scenario_input)
         if input_path.is_file():
@@ -234,9 +223,7 @@ def validate_scenario(
             ],
         )
 
-    # --------------------------------------------------------------------------
     # 2. Mandatory Top-Level Fields
-    # --------------------------------------------------------------------------
     scenario_id = data.get("scenario_id")
     if not scenario_id or not isinstance(scenario_id, str):
         line_no, line_text = _get_key_line_and_text(data.get("__line__", 1), "scenario_id", source_lines)
@@ -301,7 +288,7 @@ def validate_scenario(
                 error_type="Schema Error",
                 source_line=line_text,
                 message="'discrete_events' must be a list of event specifications.",
-                fix_hint="Declare 'discrete_events:' as a YAML list of event blocks.",
+                fix_hint="Declare 'discrete_events:' as a YAML list of event blocks (or 'discrete_events: []').",
             )
         )
         discrete_events = []
@@ -317,10 +304,9 @@ def validate_scenario(
             )
         )
 
-    # --------------------------------------------------------------------------
     # 3. Continuous Signals Math & Temporal Monotonicity
-    # --------------------------------------------------------------------------
     continuous_topics: set[str] = set()
+    seen_signal_attributes: set[tuple[str, str]] = set()
 
     for s_idx, signal in enumerate(continuous_signals):
         if not isinstance(signal, dict):
@@ -330,13 +316,14 @@ def validate_scenario(
                     error_type="Schema Error",
                     source_line=None,
                     message=f"continuous_signals[{s_idx}] must be a mapping dictionary.",
-                    fix_hint="Format each continuous signal as a dictionary containing 'topic:' and 'segments:'.",
+                    fix_hint="Format each continuous signal as a dictionary containing 'topic:', 'attribute:', and 'segments:'.",
                 )
             )
             continue
 
         sig_line = signal.get("__line__")
         topic = signal.get("topic")
+        attribute = signal.get("attribute")
 
         if not topic or not isinstance(topic, str):
             line_no, line_text = _get_key_line_and_text(sig_line, "topic", source_lines)
@@ -346,12 +333,39 @@ def validate_scenario(
                     error_type="Topic Error",
                     source_line=line_text,
                     message=f"continuous_signals[{s_idx}] is missing a valid string 'topic'.",
-                    fix_hint="Specify a valid MQTT topic, e.g., 'topic: \"streamsim.gn_robot_27.battery\"'.",
+                    fix_hint="Specify a valid MQTT topic, e.g., 'topic: \"warehouse.robot.forklift\"'.",
                 )
             )
             continue
 
+        if not attribute or not isinstance(attribute, str):
+            line_no, line_text = _get_key_line_and_text(sig_line, "attribute", source_lines)
+            errors.append(
+                ValidationError(
+                    line_number=line_no or sig_line,
+                    error_type="Attribute Error",
+                    source_line=line_text,
+                    message=f"continuous_signals[{s_idx}] is missing a valid string 'attribute'.",
+                    fix_hint="Specify the payload attribute field, e.g., 'attribute: \"battery\"' or 'attribute: \"position.x\"'.",
+                )
+            )
+            continue
+
+        sig_key = (topic, attribute)
+        if sig_key in seen_signal_attributes:
+            line_no, line_text = _get_key_line_and_text(sig_line, "attribute", source_lines)
+            errors.append(
+                ValidationError(
+                    line_number=line_no or sig_line,
+                    error_type="Duplicate Signal Error",
+                    source_line=line_text,
+                    message=f"Signal for topic '{topic}' and attribute '{attribute}' is declared more than once.",
+                    fix_hint="Combine piecewise segments for the same attribute into a single signal block.",
+                )
+            )
+        seen_signal_attributes.add(sig_key)
         continuous_topics.add(topic)
+
         segments = signal.get("segments")
 
         if not segments or not isinstance(segments, list) or len(segments) == 0:
@@ -361,7 +375,7 @@ def validate_scenario(
                     line_number=line_no or sig_line,
                     error_type="Segments Error",
                     source_line=line_text,
-                    message=f"Signal '{topic}' must declare a non-empty list of 'segments'.",
+                    message=f"Signal '{topic}.{attribute}' must declare a non-empty list of 'segments'.",
                     fix_hint="Add at least one initial segment starting at time 0.0 under 'segments:'.",
                 )
             )
@@ -375,7 +389,7 @@ def validate_scenario(
                         line_number=sig_line,
                         error_type="Segment Structure Error",
                         source_line=None,
-                        message=f"Signal '{topic}' -> segments[{seg_idx}] must be a dictionary.",
+                        message=f"Signal '{topic}.{attribute}' -> segments[{seg_idx}] must be a dictionary.",
                         fix_hint="Format each segment with 'time:', 'value:', and 'rate:'.",
                     )
                 )
@@ -386,7 +400,6 @@ def validate_scenario(
             val = seg.get("value")
             rate = seg.get("rate")
 
-            # Validate Segment Time
             if t is None or not isinstance(t, (int, float)):
                 line_no, line_text = _get_key_line_and_text(seg_line, "time", source_lines)
                 errors.append(
@@ -394,7 +407,7 @@ def validate_scenario(
                         line_number=line_no or seg_line,
                         error_type="Type Error",
                         source_line=line_text,
-                        message=f"Segment[{seg_idx}] of '{topic}' has invalid 'time': {t}. Must be numeric.",
+                        message=f"Segment[{seg_idx}] of '{topic}.{attribute}' has invalid 'time': {t}. Must be numeric.",
                         fix_hint="Provide a numerical timestamp (e.g., 'time: 0.0').",
                     )
                 )
@@ -406,7 +419,7 @@ def validate_scenario(
                             line_number=line_no or seg_line,
                             error_type="Temporal Error",
                             source_line=line_text,
-                            message=f"Segment[{seg_idx}] of '{topic}' has negative timestamp: {t}s.",
+                            message=f"Segment[{seg_idx}] of '{topic}.{attribute}' has negative timestamp: {t}s.",
                             fix_hint="Timestamps must be non-negative (>= 0.0).",
                         )
                     )
@@ -437,7 +450,6 @@ def validate_scenario(
                     )
                 last_time = t
 
-            # Validate Segment Value
             if val is None or not isinstance(val, (int, float)):
                 line_no, line_text = _get_key_line_and_text(seg_line, "value", source_lines)
                 errors.append(
@@ -445,12 +457,11 @@ def validate_scenario(
                         line_number=line_no or seg_line,
                         error_type="Type Error",
                         source_line=line_text,
-                        message=f"Segment[{seg_idx}] of '{topic}' has non-numeric 'value': {val}.",
+                        message=f"Segment[{seg_idx}] of '{topic}.{attribute}' has non-numeric 'value': {val}.",
                         fix_hint="Provide a numerical starting value (e.g., 'value: 100.0').",
                     )
                 )
 
-            # Validate Segment Rate
             if rate is None or not isinstance(rate, (int, float)):
                 line_no, line_text = _get_key_line_and_text(seg_line, "rate", source_lines)
                 errors.append(
@@ -458,23 +469,20 @@ def validate_scenario(
                         line_number=line_no or seg_line,
                         error_type="Type Error",
                         source_line=line_text,
-                        message=f"Segment[{seg_idx}] of '{topic}' has non-numeric 'rate': {rate}.",
+                        message=f"Segment[{seg_idx}] of '{topic}.{attribute}' has non-numeric 'rate': {rate}.",
                         fix_hint="Specify a numerical rate of change (e.g., 'rate: 0.0' for constant, or '-0.5').",
                     )
                 )
 
-        # Baseline coverage warning if signal does not initialize at t=0
         if segments and isinstance(segments[0], dict):
             first_t = segments[0].get("time")
             if isinstance(first_t, (int, float)) and first_t > 0.0:
                 warnings.append(
-                    f"Signal '{topic}' starts at t={first_t}s instead of 0.0s. "
+                    f"Signal '{topic}.{attribute}' starts at t={first_t}s instead of 0.0s. "
                     "Initial behavior before this timestamp is undefined."
                 )
 
-    # --------------------------------------------------------------------------
-    # 4. Discrete Events Checks
-    # --------------------------------------------------------------------------
+    # 4. Discrete Events Checks (Standardized: topic, attribute, value)
     discrete_topics: set[str] = set()
 
     for e_idx, event in enumerate(discrete_events):
@@ -485,7 +493,7 @@ def validate_scenario(
                     error_type="Schema Error",
                     source_line=None,
                     message=f"discrete_events[{e_idx}] must be a mapping dictionary.",
-                    fix_hint="Format each discrete event with 'time:', 'topic:', and 'payload:'.",
+                    fix_hint="Format each discrete event with 'time:', 'topic:', 'attribute:', and 'value:'.",
                 )
             )
             continue
@@ -493,7 +501,8 @@ def validate_scenario(
         evt_line = event.get("__line__")
         t = event.get("time")
         topic = event.get("topic")
-        payload = event.get("payload")
+        attribute = event.get("attribute")
+        val = event.get("value")
 
         if t is None or not isinstance(t, (int, float)):
             line_no, line_text = _get_key_line_and_text(evt_line, "time", source_lines)
@@ -527,27 +536,37 @@ def validate_scenario(
                     error_type="Topic Error",
                     source_line=line_text,
                     message=f"discrete_events[{e_idx}] is missing a valid string 'topic'.",
-                    fix_hint="Specify a valid target topic, e.g., 'topic: \"streamsim.actuator.relay.set\"'.",
+                    fix_hint="Specify a valid target topic, e.g., 'topic: \"warehouse.actuators.conveyor\"'.",
                 )
             )
         else:
             discrete_topics.add(topic)
 
-        if payload is None:
-            line_no, line_text = _get_key_line_and_text(evt_line, "payload", source_lines)
+        if not attribute or not isinstance(attribute, str):
+            line_no, line_text = _get_key_line_and_text(evt_line, "attribute", source_lines)
             errors.append(
                 ValidationError(
                     line_number=line_no or evt_line,
-                    error_type="Payload Error",
+                    error_type="Attribute Error",
                     source_line=line_text,
-                    message=f"discrete_events[{e_idx}] to '{topic}' is missing 'payload'.",
-                    fix_hint="Provide a state or message payload, e.g., 'payload: {\"state\": 0}'.",
+                    message=f"discrete_events[{e_idx}] is missing a valid string 'attribute'.",
+                    fix_hint="Specify the target attribute, e.g., 'attribute: \"state\"'.",
                 )
             )
 
-    # --------------------------------------------------------------------------
+        if val is None:
+            line_no, line_text = _get_key_line_and_text(evt_line, "value", source_lines)
+            errors.append(
+                ValidationError(
+                    line_number=line_no or evt_line,
+                    error_type="Value Error",
+                    source_line=line_text,
+                    message=f"discrete_events[{e_idx}] to '{topic}' is missing 'value'.",
+                    fix_hint="Provide an explicit state or value, e.g., 'value: 1' or 'value: true'.",
+                )
+            )
+
     # 5. Topic Conflict Check (Functional Isolation Rule)
-    # --------------------------------------------------------------------------
     overlapping_topics = continuous_topics.intersection(discrete_topics)
     if overlapping_topics:
         for overlap in overlapping_topics:
@@ -564,9 +583,7 @@ def validate_scenario(
                 )
             )
 
-    # --------------------------------------------------------------------------
-    # 6. Physical World Model Grounding Check
-    # --------------------------------------------------------------------------
+    # 6. Physical World Model Grounding Check (Strict Topic Verification)
     if world_model_path and Path(world_model_path).exists() and parse_envpop_model:
         try:
             world_summary = parse_envpop_model(world_model_path)
@@ -574,47 +591,49 @@ def validate_scenario(
                 world_summary.get("all_topics", {}).get("publishers", [])
                 + world_summary.get("all_topics", {}).get("subscribers", [])
             )
-            known_entities = set(world_summary.get("all_valid_entity_names", []))
 
-            # Validate continuous topics against world model
             for sig in continuous_signals:
                 top = sig.get("topic")
-                if top and not _topic_matches_world(top, declared_topics, known_entities):
-                    line_no, line_text = _get_key_line_and_text(sig.get("__line__"), "topic", source_lines)
+                if top and not _topic_matches_world(top, declared_topics):
+                    line_no, line_text = _get_key_line_and_text(
+                        sig.get("__line__"), "topic", source_lines
+                    )
                     errors.append(
                         ValidationError(
                             line_number=line_no or sig.get("__line__"),
                             error_type="Grounding Error",
                             source_line=line_text,
                             message=(
-                                f"Topic '{top}' does not match any known physical sensor, actuator, or robot "
-                                f"declared in world model '{Path(world_model_path).name}'."
+                                f"Topic '{top}' is not a valid broker topic in '{Path(world_model_path).name}'. "
+                                f"Available topics: {sorted(list(declared_topics))}"
                             ),
-                            fix_hint=f"Use one of the recognized entity names or publisher topics from the world model.",
+                            fix_hint=f"Use one of the declared broker topics: {sorted(list(declared_topics))}",
                         )
                     )
 
-            # Validate discrete topics against world model
             for evt in discrete_events:
                 top = evt.get("topic")
-                if top and not _topic_matches_world(top, declared_topics, known_entities):
-                    line_no, line_text = _get_key_line_and_text(evt.get("__line__"), "topic", source_lines)
+                if top and not _topic_matches_world(top, declared_topics):
+                    line_no, line_text = _get_key_line_and_text(
+                        evt.get("__line__"), "topic", source_lines
+                    )
                     errors.append(
                         ValidationError(
                             line_number=line_no or evt.get("__line__"),
                             error_type="Grounding Error",
                             source_line=line_text,
                             message=(
-                                f"Topic '{top}' does not match any known actuator or device declared in "
-                                f"world model '{Path(world_model_path).name}'."
+                                f"Topic '{top}' is not a valid broker topic in '{Path(world_model_path).name}'. "
+                                f"Available topics: {sorted(list(declared_topics))}"
                             ),
-                            fix_hint="Verify the topic name against the actuator/sensor list in the world model.",
+                            fix_hint=f"Use one of the declared broker topics: {sorted(list(declared_topics))}",
                         )
                     )
         except Exception as e:
-            warnings.append(f"World Grounding Check Skipped: Could not parse world model: {e}")
+            warnings.append(
+                f"World Grounding Check Skipped: Could not parse world model: {e}"
+            )
 
-    # Clean internal line metadata before returning clean scenario data
     clean_data = _strip_line_metadata(data) if len(errors) == 0 else None
 
     return ValidationResult(

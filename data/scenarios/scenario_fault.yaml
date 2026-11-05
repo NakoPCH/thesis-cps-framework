@@ -1,0 +1,48 @@
+scenario_id: "forklift_battery_sensor_drift_and_speed_glitch"
+category: "fault"
+description: "Simulates a critical sensor failure where the battery level signal drifts rapidly due to a faulty shunt resistor, alongside a momentary speed sensor glitch that triggers a fatal violation."
+duration: 100.0
+continuous_signals:
+  - topic: "warehouse.robot.forklift"
+    attribute: "battery"
+    segments:
+      - time: 0.0
+        value: 85.0
+        rate: -0.1
+      - time: 40.0
+        value: 81.0
+        rate: -2.5
+      - time: 60.0
+        value: 31.0
+        rate: 0.0
+  - topic: "warehouse.robot.forklift"
+    attribute: "speed"
+    segments:
+      - time: 0.0
+        value: 2.0
+        rate: 0.0
+      - time: 50.0
+        value: 15.0
+        rate: 0.0
+      - time: 50.5
+        value: 2.0
+        rate: 0.0
+  - topic: "warehouse.robot.forklift"
+    attribute: "position.x"
+    segments:
+      - time: 0.0
+        value: 2.0
+        rate: 0.1
+      - time: 100.0
+        value: 12.0
+        rate: 0.0
+  - topic: "warehouse.robot.forklift"
+    attribute: "position.y"
+    segments:
+      - time: 0.0
+        value: 2.0
+        rate: 0.1
+      - time: 100.0
+        value: 12.0
+        rate: 0.0
+discrete_events: []
