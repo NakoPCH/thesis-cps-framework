@@ -48,7 +48,7 @@ from common.config import (
     WORLD_MODELS_DIR,
 )
 
-SCENARIO_CATEGORIES = ["operational", "fault", "security"]
+SCENARIO_CATEGORIES = ["nominal", "operational", "fault", "security"]
 SCENARIOS_OUTPUT_DIR = DATA_DIR / "scenarios"
 CODE_FENCE = "`" * 3
 
@@ -103,9 +103,10 @@ def _log_scenario_attempt_to_csv(csv_path: str | Path, record: Dict[str, Any]) -
 
 def _query_llm_generator(
     messages: List[Dict[str, str]], 
-    temperature: float = 0.7
+    temperature: float = 0.7,
+    max_api_retries: int = 3,
 ) -> Optional[str]:
-    """Handles API request dispatching with configurable temperature and robust YAML extraction."""
+    """Handles API dispatching with 429 rate-limit backoff and robust YAML extraction."""
     headers = {
         "Authorization": f"Bearer {TOKEN}",
         "HTTP-Referer": "https://github.com/your-username/thesis",
@@ -116,50 +117,71 @@ def _query_llm_generator(
         "model": MODEL,
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": 2048,
+        "max_tokens": 4096,
     }
 
-    t0 = time.time()
-    print(f"   ⏳ Dispatching prompt to {MODEL} (temp={temperature})...")
+    for api_attempt in range(max_api_retries):
+        t0 = time.time()
+        print(f"   ⏳ Dispatching prompt to {MODEL} (temp={temperature})...")
 
-    try:
-        response = requests.post(
-            f"{BASE_URL}/chat/completions",
-            headers=headers,
-            json=payload,
-            timeout=120,
-        )
-    except requests.exceptions.Timeout:
-        print("   ⏱️ API Error: Request timed out after 120 seconds.")
-        return None
-    except Exception as e:
-        print(f"   ❌ Connection error: {e}")
-        return None
+        try:
+            response = requests.post(
+                f"{BASE_URL}/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=120,
+            )
+        except requests.exceptions.Timeout:
+            print("   ⏱️ API Error: Request timed out after 120 seconds.")
+            return None
+        except Exception as e:
+            print(f"   ❌ Connection error: {e}")
+            return None
 
-    elapsed = time.time() - t0
-    print(f"   📥 Response received in {elapsed:.1f}s.")
+        elapsed = time.time() - t0
+        print(f"   📥 Response received in {elapsed:.1f}s.")
 
-    if response.status_code != 200:
-        print(f"   ❌ API Error {response.status_code}: {response.text}")
-        return None
+        # Handle upstream Google 429 rate limits dynamically
+        if response.status_code == 429:
+            delay = 45.0
+            match = re.search(r"retry in ([0-9.]+)s", response.text)
+            if not match:
+                match = re.search(r'"retryDelay":\s*"(\d+)s?"', response.text)
+            if match:
+                delay = float(match.group(1)) + 2.0
 
-    data = response.json()
-    if "choices" not in data or not data["choices"]:
-        print(f"   ❌ Provider returned unexpected payload:\n{data}")
-        return None
+            print(f"   ⚠️ Rate limited (429). Sleeping {delay:.1f}s before retry ({api_attempt + 1}/{max_api_retries})...")
+            time.sleep(delay)
+            continue
 
-    raw_content = data["choices"][0]["message"]["content"].strip()
+        if response.status_code != 200:
+            print(f"   ❌ API Error {response.status_code}: {response.text}")
+            return None
 
-    # Extract clean YAML from markdown code fences, ignoring any conversational preamble
-    match = re.search(r"```(?:yaml)?\s*\n(.*?)\n```", raw_content, re.DOTALL | re.IGNORECASE)
-    if match:
-        generated_yaml = match.group(1).strip()
-    else:
-        # Fallback: Isolate YAML content starting from scenario_id if fences were omitted
-        scen_match = re.search(r"(scenario_id\s*:.*)", raw_content, re.DOTALL)
-        generated_yaml = scen_match.group(1).strip() if scen_match else raw_content
+        data = response.json()
+        if "choices" not in data or not data["choices"]:
+            print(f"   ❌ Provider returned unexpected payload:\n{data}")
+            return None
 
-    return generated_yaml
+        raw_content = data["choices"][0]["message"].get("content")
+        if not raw_content:
+            print("   ❌ Provider returned null or empty content.")
+            return None
+
+        raw_content = raw_content.strip()
+
+        # Extract clean YAML from markdown code fences, ignoring conversational preamble
+        match = re.search(r"```(?:yaml)?\s*\n(.*?)\n```", raw_content, re.DOTALL | re.IGNORECASE)
+        if match:
+            generated_yaml = match.group(1).strip()
+        else:
+            scen_match = re.search(r"(scenario_id\s*:.*)", raw_content, re.DOTALL)
+            generated_yaml = scen_match.group(1).strip() if scen_match else raw_content
+
+        return generated_yaml
+
+    print("   ❌ Exhausted API retries due to repeated rate limits.")
+    return None
 
 
 def generate_and_verify_category_scenario(
@@ -175,7 +197,10 @@ def generate_and_verify_category_scenario(
     """Generates and validates a scenario for a single category with self-repair retries."""
     os.makedirs(SCENARIOS_OUTPUT_DIR, exist_ok=True)
     csv_path = EXPERIMENTS_DIR / "eval_scenarios.csv"
-    output_file = SCENARIOS_OUTPUT_DIR / f"scenario_{category}.yaml"
+    output_filename = (
+        "nominal_baseline.yaml" if category == "nominal" else f"scenario_{category}.yaml"
+    )
+    output_file = SCENARIOS_OUTPUT_DIR / output_filename
 
     initial_user_prompt = build_scenario_generation_prompt(
         category=category,
@@ -446,7 +471,12 @@ def run_scenario_generation_pipeline(
     scenario_results: Dict[str, Dict[str, Any]] = {}
     all_succeeded = True
 
-    for category in target_categories:
+    for idx, category in enumerate(target_categories):
+        if idx > 0:
+            cooldown_sec = 20
+            print(f"\n⏳ Inter-category cooldown: waiting {cooldown_sec}s to replenish token quota...")
+            time.sleep(cooldown_sec)
+
         res = generate_and_verify_category_scenario(
             category=category,
             goal_dsl_content=goal_dsl_content,
@@ -486,7 +516,7 @@ def run_scenario_generation_pipeline(
 
 
 if __name__ == "__main__":
-    default_world_file = WORLD_MODELS_DIR / "warehouse_world_model.yaml"
+    default_world_file = WORLD_MODELS_DIR / "world_model.yaml"
     default_goal_file = DATA_DIR / "test_broker.goal"
 
     pipeline_output = run_scenario_generation_pipeline(

@@ -28,7 +28,7 @@ except ImportError:
     parse_envpop_model = None
 
 
-VALID_CATEGORIES = {"operational", "fault", "security"}
+VALID_CATEGORIES = {"nominal", "operational", "fault", "security"}
 
 
 class LineTrackingSafeLoader(yaml.SafeLoader):
@@ -180,7 +180,11 @@ def validate_scenario(
         except yaml.YAMLError as e:
             mark = getattr(e, "problem_mark", None)
             line_no = (mark.line + 1) if mark else None
-            snippet = source_lines[mark.line] if mark and 0 <= mark.line < len(source_lines) else None
+            snippet = (
+                source_lines[mark.line]
+                if mark and 0 <= mark.line < len(source_lines)
+                else None
+            )
             return ValidationResult(
                 is_valid=False,
                 errors=[
@@ -226,7 +230,9 @@ def validate_scenario(
     # 2. Mandatory Top-Level Fields
     scenario_id = data.get("scenario_id")
     if not scenario_id or not isinstance(scenario_id, str):
-        line_no, line_text = _get_key_line_and_text(data.get("__line__", 1), "scenario_id", source_lines)
+        line_no, line_text = _get_key_line_and_text(
+            data.get("__line__", 1), "scenario_id", source_lines
+        )
         errors.append(
             ValidationError(
                 line_number=line_no,
@@ -239,20 +245,24 @@ def validate_scenario(
 
     category = data.get("category")
     if category not in VALID_CATEGORIES:
-        line_no, line_text = _get_key_line_and_text(data.get("__line__", 1), "category", source_lines)
+        line_no, line_text = _get_key_line_and_text(
+            data.get("__line__", 1), "category", source_lines
+        )
         errors.append(
             ValidationError(
                 line_number=line_no,
                 error_type="Category Error",
                 source_line=line_text,
                 message=f"'category' must be one of {sorted(list(VALID_CATEGORIES))}, got '{category}'.",
-                fix_hint="Set category to 'operational', 'fault', or 'security'.",
+                fix_hint="Set category to 'nominal', 'operational', 'fault', or 'security'.",
             )
         )
 
     duration = data.get("duration")
     if duration is None or not isinstance(duration, (int, float)) or duration <= 0:
-        line_no, line_text = _get_key_line_and_text(data.get("__line__", 1), "duration", source_lines)
+        line_no, line_text = _get_key_line_and_text(
+            data.get("__line__", 1), "duration", source_lines
+        )
         errors.append(
             ValidationError(
                 line_number=line_no,
@@ -268,7 +278,9 @@ def validate_scenario(
     discrete_events = data.get("discrete_events", [])
 
     if not isinstance(continuous_signals, list):
-        line_no, line_text = _get_key_line_and_text(data.get("__line__", 1), "continuous_signals", source_lines)
+        line_no, line_text = _get_key_line_and_text(
+            data.get("__line__", 1), "continuous_signals", source_lines
+        )
         errors.append(
             ValidationError(
                 line_number=line_no,
@@ -281,7 +293,9 @@ def validate_scenario(
         continuous_signals = []
 
     if not isinstance(discrete_events, list):
-        line_no, line_text = _get_key_line_and_text(data.get("__line__", 1), "discrete_events", source_lines)
+        line_no, line_text = _get_key_line_and_text(
+            data.get("__line__", 1), "discrete_events", source_lines
+        )
         errors.append(
             ValidationError(
                 line_number=line_no,
@@ -339,7 +353,9 @@ def validate_scenario(
             continue
 
         if not attribute or not isinstance(attribute, str):
-            line_no, line_text = _get_key_line_and_text(sig_line, "attribute", source_lines)
+            line_no, line_text = _get_key_line_and_text(
+                sig_line, "attribute", source_lines
+            )
             errors.append(
                 ValidationError(
                     line_number=line_no or sig_line,
@@ -353,7 +369,9 @@ def validate_scenario(
 
         sig_key = (topic, attribute)
         if sig_key in seen_signal_attributes:
-            line_no, line_text = _get_key_line_and_text(sig_line, "attribute", source_lines)
+            line_no, line_text = _get_key_line_and_text(
+                sig_line, "attribute", source_lines
+            )
             errors.append(
                 ValidationError(
                     line_number=line_no or sig_line,
@@ -369,7 +387,9 @@ def validate_scenario(
         segments = signal.get("segments")
 
         if not segments or not isinstance(segments, list) or len(segments) == 0:
-            line_no, line_text = _get_key_line_and_text(sig_line, "segments", source_lines)
+            line_no, line_text = _get_key_line_and_text(
+                sig_line, "segments", source_lines
+            )
             errors.append(
                 ValidationError(
                     line_number=line_no or sig_line,
@@ -401,7 +421,9 @@ def validate_scenario(
             rate = seg.get("rate")
 
             if t is None or not isinstance(t, (int, float)):
-                line_no, line_text = _get_key_line_and_text(seg_line, "time", source_lines)
+                line_no, line_text = _get_key_line_and_text(
+                    seg_line, "time", source_lines
+                )
                 errors.append(
                     ValidationError(
                         line_number=line_no or seg_line,
@@ -413,7 +435,9 @@ def validate_scenario(
                 )
             else:
                 if t < 0.0:
-                    line_no, line_text = _get_key_line_and_text(seg_line, "time", source_lines)
+                    line_no, line_text = _get_key_line_and_text(
+                        seg_line, "time", source_lines
+                    )
                     errors.append(
                         ValidationError(
                             line_number=line_no or seg_line,
@@ -424,7 +448,9 @@ def validate_scenario(
                         )
                     )
                 if duration > 0 and t > duration:
-                    line_no, line_text = _get_key_line_and_text(seg_line, "time", source_lines)
+                    line_no, line_text = _get_key_line_and_text(
+                        seg_line, "time", source_lines
+                    )
                     errors.append(
                         ValidationError(
                             line_number=line_no or seg_line,
@@ -435,7 +461,9 @@ def validate_scenario(
                         )
                     )
                 if t <= last_time:
-                    line_no, line_text = _get_key_line_and_text(seg_line, "time", source_lines)
+                    line_no, line_text = _get_key_line_and_text(
+                        seg_line, "time", source_lines
+                    )
                     errors.append(
                         ValidationError(
                             line_number=line_no or seg_line,
@@ -451,7 +479,9 @@ def validate_scenario(
                 last_time = t
 
             if val is None or not isinstance(val, (int, float)):
-                line_no, line_text = _get_key_line_and_text(seg_line, "value", source_lines)
+                line_no, line_text = _get_key_line_and_text(
+                    seg_line, "value", source_lines
+                )
                 errors.append(
                     ValidationError(
                         line_number=line_no or seg_line,
@@ -463,7 +493,9 @@ def validate_scenario(
                 )
 
             if rate is None or not isinstance(rate, (int, float)):
-                line_no, line_text = _get_key_line_and_text(seg_line, "rate", source_lines)
+                line_no, line_text = _get_key_line_and_text(
+                    seg_line, "rate", source_lines
+                )
                 errors.append(
                     ValidationError(
                         line_number=line_no or seg_line,
@@ -517,7 +549,9 @@ def validate_scenario(
             )
         else:
             if t < 0.0 or (duration > 0 and t > duration):
-                line_no, line_text = _get_key_line_and_text(evt_line, "time", source_lines)
+                line_no, line_text = _get_key_line_and_text(
+                    evt_line, "time", source_lines
+                )
                 errors.append(
                     ValidationError(
                         line_number=line_no or evt_line,
@@ -543,7 +577,9 @@ def validate_scenario(
             discrete_topics.add(topic)
 
         if not attribute or not isinstance(attribute, str):
-            line_no, line_text = _get_key_line_and_text(evt_line, "attribute", source_lines)
+            line_no, line_text = _get_key_line_and_text(
+                evt_line, "attribute", source_lines
+            )
             errors.append(
                 ValidationError(
                     line_number=line_no or evt_line,
@@ -629,6 +665,34 @@ def validate_scenario(
                             fix_hint=f"Use one of the declared broker topics: {sorted(list(declared_topics))}",
                         )
                     )
+
+            # For nominal baselines, ensure every concrete publisher topic in the world model is represented
+            if category == "nominal":
+                declared_pub_topics = {
+                    t
+                    for t in world_summary.get("all_topics", {}).get("publishers", [])
+                    if "{UID}" not in t and "*" not in t
+                }
+                missing_pub_topics = sorted(
+                    list(declared_pub_topics - continuous_topics)
+                )
+                if missing_pub_topics:
+                    errors.append(
+                        ValidationError(
+                            line_number=data.get("__line__", 1),
+                            error_type="Incomplete Nominal Coverage",
+                            source_line=None,
+                            message=(
+                                "Nominal baseline must include continuous signals for all publisher topics "
+                                f"in '{Path(world_model_path).name}'. Missing topics: {missing_pub_topics}"
+                            ),
+                            fix_hint=(
+                                "Add continuous_signals (starting at time: 0.0) with healthy nominal values "
+                                f"for the missing topics: {missing_pub_topics}"
+                            ),
+                        )
+                    )
+
         except Exception as e:
             warnings.append(
                 f"World Grounding Check Skipped: Could not parse world model: {e}"

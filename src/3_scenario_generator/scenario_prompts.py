@@ -26,6 +26,35 @@ def load_scenario_schema() -> str:
 # CATEGORY-SPECIFIC DESIGN INSTRUCTIONS (DOMAIN-AGNOSTIC)
 # ==============================================================================
 CATEGORY_INSTRUCTIONS: dict[str, str] = {
+    "nominal": """
+TARGET CATEGORY: "nominal" (Golden Nominal Baseline - Full World Execution)
+------------------------------------------------------------------------------
+CONCEPT:
+A nominal scenario models a completely healthy, fault-free, and attack-free
+run where every entity in the Physical World Model operates within safe bounds
+and ALL goals, invariants, waypoints, and deadlines in the Goal-DSL (.goal)
+specification succeed without any violations.
+
+HOW TO DESIGN THIS SCENARIO:
+- FULL WORLD COVERAGE (CRITICAL): You MUST generate continuous_signals
+  (starting at time: 0.0) for EVERY entity and EVERY declared publisher topic
+  in the Physical World Model—including peripheral entities and attributes
+  that are NOT referenced in the .goal file.
+- SATISFY ALL .GOAL CONSTRAINTS: Inspect every threshold condition (>, <, >=,
+  <=, ==), spatial waypoint (Point2D/Point3D), and temporal constraint
+  (FROM_GOAL_START) in the .goal specification. Choose safe initial values and
+  realistic rates so every single goal passes with comfortable safety margins
+  (e.g., keeping battery levels well above minimum limits and <= 100.0, and
+  reaching all target coordinates well before deadlines).
+- POPULATE UNREFERENCED ENTITIES: For entities and attributes in the World
+  Model that do not appear in .goal, assign physically realistic, steady, or
+  gently varying idle/nominal operating values so the entire environment is
+  actively represented.
+- Use dot notation for multidimensional attributes (e.g., attribute: "position.x",
+  attribute: "position.y").
+- Leave 'discrete_events: []' unless an initial nominal state activation is
+  strictly required.
+""",
     "operational": """
 TARGET CATEGORY: "operational" (Operational Stress & Goal Boundary Violation)
 ------------------------------------------------------------------------------
@@ -113,14 +142,16 @@ Your task is to autonomously invent and generate a complete, deterministic test 
 CORE PRINCIPLES & CONSTRAINTS:
 - DOMAIN AGNOSTICISM & CREATIVITY:
   Adapt completely to whatever CPS environment is described in the World Model and .goal file. Actively analyze the specific thresholds, entity names, metrics, and logic inside the .goal file to craft a creative, tailored scenario rather than a generic boilerplate.
-- COMPLETE DESCRIPTIVENESS:
-  Every scenario must be 100% self-contained. Do not assume an external simulator fills in "normal" behavior. Every signal included in 'continuous_signals' MUST start with an initial segment at 'time: 0.0' and define piecewise linear segments across the timeline.
-  Mathematical rule for continuous segments:
-    value(t) = segment.value + segment.rate * (t - segment.time)
-    * rate = 0.0 means a constant value.
-    * rate < 0.0 means linear decay.
-    * rate > 0.0 means linear growth.
-    * An abrupt step-change or glitch spike at time t is modeled by starting a new segment at time t with a discontinuous 'value'.
+- COMPLETE DESCRIPTIVENESS & FORWARD INTERVAL SEMANTICS:
+  Every scenario must be 100% self-contained. Do not assume an external simulator fills in 'normal' behavior. Every signal in 'continuous_signals' MUST start with an initial segment at 'time: 0.0' and define piecewise linear segments across the timeline.
+  * Forward Interval Rule: Segment k defines the signal's trajectory over the forward interval [t_k, t_{k+1}) using:
+      value(t) = segment[k].value + segment[k].rate * (t - segment[k].time)
+    where 'rate' is the slope applied AFTER segment[k].time until the next segment begins.
+  * Continuous Linear Transitions (Smooth Ramps): To smoothly change ANY physical quantity from V_start at t_1 to V_end at t_2:
+      - Start the ramp at t_1 with 'value: V_start' and 'rate: (V_end - V_start) / (t_2 - t_1)'.
+      - End the ramp at t_2 with 'value: V_end' (matching V_start + rate * (t_2 - t_1)) and 'rate: 0.0' (or the slope for the next interval).
+    NEVER put the transition rate on the arrival segment at t_2; doing so leaves the signal flat until t_2 and causes an instantaneous teleportation jump at t_2.
+  * Discontinuous Step-Jumps (Faults / Spoofing Only): When segment[k+1].value does NOT equal the projected endpoint of segment[k], an instantaneous jump occurs at t_{k+1}. Use discontinuities ONLY for abrupt faults, glitches, or sensor spoofing—never for normal physical changes.
 - STRICT BROKER TOPIC & ATTRIBUTE SEPARATION:
   * In both 'continuous_signals' and 'discrete_events', the 'topic' field MUST be an exact communication broker topic declared in the World Model.
   * Both 'continuous_signals' and 'discrete_events' MUST specify the target property using the separate 'attribute' key (e.g., attribute: "battery", attribute: "state").
