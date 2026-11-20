@@ -89,11 +89,11 @@ def resolve_entity_topic_map(
     world_model_path: Path,
     baseline_data: Dict[str, Any],
 ) -> Dict[str, List[str]]:
-    """Maps every entity declared in the world model to its active publisher topic(s).
+    """Maps every entity declared in the EnvPop world model to its publisher topic(s).
 
-    Inspects both envpop_parser output and the raw world model YAML structure so
-    every entity—including peripheral entities not referenced in .goal—is mapped
-    to the exact topic(s) it publishes in nominal_baseline.yaml.
+    Inspects 'robots' (list) as well as grouped dictionaries under 'env_devices'
+    and 'actors' in world_model.yaml, extracting strictly from 'transports.publishers'
+    so subscriber-only topics are not mistaken for telemetry streams.
     """
     if not world_model_path.exists():
         raise FileNotFoundError(f"World model file not found at: {world_model_path}")
@@ -108,9 +108,6 @@ def resolve_entity_topic_map(
         except Exception as exc:
             print(f"⚠️ Warning: envpop_parser fallback triggered ({exc})")
 
-    declared_pub_topics = set(
-        world_summary.get("all_topics", {}).get("publishers", [])
-    )
     baseline_topics = {
         sig.get("topic")
         for sig in baseline_data.get("continuous_signals", [])
@@ -119,45 +116,34 @@ def resolve_entity_topic_map(
 
     entity_raw_topics: Dict[str, List[str]] = {}
 
-    # 1. Inspect structured entities from envpop_parser if available
-    parsed_entities = world_summary.get("entities")
-    if isinstance(parsed_entities, dict):
-        for ent_name, ent_info in parsed_entities.items():
-            topics = _extract_topics_from_node(ent_info)
-            if declared_pub_topics:
-                topics = [t for t in topics if t in declared_pub_topics] or topics
-            entity_raw_topics[str(ent_name)] = list(dict.fromkeys(topics))
-    elif isinstance(parsed_entities, list):
-        for ent_item in parsed_entities:
-            if isinstance(ent_item, dict):
-                ent_name = ent_item.get("name") or ent_item.get("id") or ent_item.get("entity")
-                if ent_name:
-                    topics = _extract_topics_from_node(ent_item)
-                    if declared_pub_topics:
-                        topics = [t for t in topics if t in declared_pub_topics] or topics
-                    entity_raw_topics[str(ent_name)] = list(dict.fromkeys(topics))
+    def _register_entity_list(items: Any) -> None:
+        if not isinstance(items, list):
+            return
+        for ent_item in items:
+            if not isinstance(ent_item, dict):
+                continue
+            ent_name = ent_item.get("name") or ent_item.get("id")
+            if not ent_name:
+                continue
+            transports = ent_item.get("transports") or {}
+            pub_list = transports.get("publishers") if isinstance(transports, dict) else []
+            topics = _extract_topics_from_node(pub_list)
+            existing = entity_raw_topics.setdefault(str(ent_name), [])
+            for t in topics:
+                if t not in existing:
+                    existing.append(t)
 
-    # 2. Supplement or populate directly from raw world_model.yaml
-    for container_key in ("entities", "components", "agents", "nodes", "devices"):
-        container = raw_world.get(container_key)
-        if isinstance(container, dict):
-            for ent_name, ent_body in container.items():
-                if ent_name not in entity_raw_topics or not entity_raw_topics[ent_name]:
-                    topics = _extract_topics_from_node(ent_body)
-                    if declared_pub_topics:
-                        topics = [t for t in topics if t in declared_pub_topics] or topics
-                    entity_raw_topics[str(ent_name)] = list(dict.fromkeys(topics))
-        elif isinstance(container, list):
-            for ent_item in container:
-                if isinstance(ent_item, dict):
-                    ent_name = ent_item.get("name") or ent_item.get("id") or ent_item.get("entity")
-                    if ent_name and (ent_name not in entity_raw_topics or not entity_raw_topics[ent_name]):
-                        topics = _extract_topics_from_node(ent_item)
-                        if declared_pub_topics:
-                            topics = [t for t in topics if t in declared_pub_topics] or topics
-                        entity_raw_topics[str(ent_name)] = list(dict.fromkeys(topics))
+    # 1. Extract from top-level 'robots' list
+    _register_entity_list(raw_world.get("robots"))
 
-    # 3. Ensure every entity listed in all_valid_entity_names is preserved
+    # 2. Extract from categorized groups under 'env_devices' and 'actors'
+    for group_key in ("env_devices", "actors"):
+        group_dict = raw_world.get(group_key)
+        if isinstance(group_dict, dict):
+            for device_list in group_dict.values():
+                _register_entity_list(device_list)
+
+    # 3. Preserve static POIs/places from envpop_parser so unmapped items are reported
     for ent_name in world_summary.get("all_valid_entity_names", []):
         entity_raw_topics.setdefault(str(ent_name), [])
 

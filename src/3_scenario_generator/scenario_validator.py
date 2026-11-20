@@ -318,7 +318,7 @@ def validate_scenario(
             )
         )
 
-    # 3. Continuous Signals Math & Temporal Monotonicity
+    # 3. Continuous Signals Math, Temporal Monotonicity & Nominal Continuity
     continuous_topics: set[str] = set()
     seen_signal_attributes: set[tuple[str, str]] = set()
 
@@ -505,6 +505,42 @@ def validate_scenario(
                         fix_hint="Specify a numerical rate of change (e.g., 'rate: 0.0' for constant, or '-0.5').",
                     )
                 )
+
+            # Enforce C0 continuity (no instantaneous teleportation) in nominal baselines
+            if (
+                category == "nominal"
+                and seg_idx < len(segments) - 1
+                and isinstance(t, (int, float))
+                and isinstance(val, (int, float))
+                and isinstance(rate, (int, float))
+                and isinstance(segments[seg_idx + 1], dict)
+            ):
+                next_seg = segments[seg_idx + 1]
+                next_t = next_seg.get("time")
+                next_val = next_seg.get("value")
+                if isinstance(next_t, (int, float)) and isinstance(next_val, (int, float)):
+                    dt = float(next_t) - float(t)
+                    projected_v2 = float(val) + float(rate) * dt
+                    if dt > 0 and abs(projected_v2 - float(next_val)) > 1e-2:
+                        expected_rate = round((float(next_val) - float(val)) / dt, 6)
+                        line_no, line_text = _get_key_line_and_text(
+                            seg_line, "rate", source_lines
+                        )
+                        errors.append(
+                            ValidationError(
+                                line_number=line_no or seg_line,
+                                error_type="Nominal Discontinuity Error",
+                                source_line=line_text,
+                                message=(
+                                    f"Signal '{topic}.{attribute}' teleports at t={next_t}s: segment from t={t}s "
+                                    f"(value={val}, rate={rate}) reaches {round(projected_v2, 4)} instead of {next_val}."
+                                ),
+                                fix_hint=(
+                                    f"Nominal scenarios cannot have instantaneous step-jumps. Set 'rate: {expected_rate}' "
+                                    f"on the segment at time={t}s so it smoothly reaches {next_val} at time={next_t}s."
+                                ),
+                            )
+                        )
 
         if segments and isinstance(segments[0], dict):
             first_t = segments[0].get("time")
