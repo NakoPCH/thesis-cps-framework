@@ -54,10 +54,17 @@ except ImportError:
 DEFAULT_BROKER_TYPE: str = "mqtt"
 DEFAULT_HOST: str = "localhost"
 DEFAULT_PORT: int = 1883
-DEFAULT_FREQUENCY_HZ: float = 1.0       # Telemetry streaming rate (1.0 Hz = 1.0s interval)
-DEFAULT_TIME_SCALE: float = 1.0         # 1.0 = real-time, 2.0 = 2x speedup
-DEFAULT_DEPLOY_WAIT: float = 1.0        # Settle delay (s) after RPC deploy before t=0.0s telemetry
-DEFAULT_POST_VERDICT_WAIT: float = 3.5  # Grace wait (s) after playback for final RTMonitor verdict
+DEFAULT_FREQUENCY_HZ: float = 1.0  # Telemetry streaming rate (1.0 Hz = 1.0s interval)
+DEFAULT_TIME_SCALE: float = 1.0  # 1.0 = real-time, 2.0 = 2x speedup
+DEFAULT_DEPLOY_WAIT: float = (
+    1.0  # Settle delay (s) after RPC deploy before t=0.0s telemetry
+)
+DEFAULT_POST_VERDICT_WAIT: float = (
+    8  # Grace wait (s) after playback for final RTMonitor verdict
+)
+DEFAULT_START_SYNC_WAIT: float = (
+    5.0  # Max wait (s) for RTMonitor scenario_started after deploy
+)
 RTMONITOR_WILDCARD_TOPIC: str = "goaldsl.*.event"
 
 CSV_FIELDNAMES: List[str] = [
@@ -76,6 +83,9 @@ CSV_FIELDNAMES: List[str] = [
     "goalee_elapsed_s",
     "wall_elapsed_s",
     "goal_results",
+    "warning_count",
+    "warning_latency_s",
+    "runtime_warnings",
 ]
 
 
@@ -102,6 +112,7 @@ def get_connection_parameters(
     load_dotenv()
     if broker_type == "redis":
         from commlib.transports.redis import ConnectionParameters
+
         return ConnectionParameters(
             host=host or os.getenv("REDIS_HOST", "localhost"),
             port=port or int(os.getenv("REDIS_PORT", "6379")),
@@ -110,9 +121,11 @@ def get_connection_parameters(
         )
     elif broker_type == "amqp":
         from commlib.transports.amqp import ConnectionParameters
+
         return ConnectionParameters()
     elif broker_type == "mqtt":
         from commlib.transports.mqtt import ConnectionParameters
+
         return ConnectionParameters(
             host=host or os.getenv("MQTT_HOST", "localhost"),
             port=port or int(os.getenv("MQTT_PORT", "1883")),
@@ -134,7 +147,9 @@ def set_nested_value(target_dict: Dict[str, Any], attr_path: str, value: Any) ->
     curr[keys[-1]] = value
 
 
-def evaluate_signal_value(segments: List[Dict[str, Any]], current_time: float) -> Optional[float]:
+def evaluate_signal_value(
+    segments: List[Dict[str, Any]], current_time: float
+) -> Optional[float]:
     """Calculates signal value at time t using piecewise linear dynamics:
 
     value(t) = segment.value + segment.rate * (t - segment.time)
@@ -199,11 +214,14 @@ class ScenarioRunner:
 
         # Runtime monitor synchronization and per-case verdict state
         self._event_lock = threading.Lock()
+        self._started_event = threading.Event()
         self._finished_event = threading.Event()
         self._current_sim_time: float = 0.0
         self._scenario_finished_data: Optional[Dict[str, Any]] = None
         self._first_failed_goal: Optional[str] = None
         self._first_failed_sim_time: Optional[float] = None
+        self._entity_warnings: List[Dict[str, Any]] = []
+        self._first_warning_sim_time: Optional[float] = None
 
         # Automatic CSV output state
         self.csv_path: Optional[Path] = None
@@ -218,7 +236,9 @@ class ScenarioRunner:
         """Loads the optional .goal model and detects single scenario vs. fault sweep manifest."""
         if self.goal_file is not None:
             if not self.goal_file.exists():
-                raise FileNotFoundError(f"Goal specification file not found at: {self.goal_file}")
+                raise FileNotFoundError(
+                    f"Goal specification file not found at: {self.goal_file}"
+                )
             with open(self.goal_file, "r", encoding="utf-8") as gf:
                 self.goal_model_content = gf.read()
             if not self.goal_model_content.strip():
@@ -254,7 +274,9 @@ class ScenarioRunner:
             print(f"[*] Mode            : FAULT SWEEP MANIFEST")
             print(f"[*] Sweep ID        : '{self.manifest_data.get('sweep_id')}'")
             print(f"[*] Baseline File   : {baseline_ref.name}")
-            print(f"[*] Goal File       : {self.goal_file.name if self.goal_file else 'None (manual deploy)'}")
+            print(
+                f"[*] Goal File       : {self.goal_file.name if self.goal_file else 'None (manual deploy)'}"
+            )
             print(f"[*] Total Cases     : {len(cases)}")
             print(f"[*] Inject Time     : {self.manifest_data.get('inject_time')}s")
         else:
@@ -262,7 +284,9 @@ class ScenarioRunner:
             if validate_scenario:
                 val_result = validate_scenario(self.scenario_file)
                 if not val_result.is_valid:
-                    print(f"❌ Pre-flight Validation Failed for {self.scenario_file.name}:")
+                    print(
+                        f"❌ Pre-flight Validation Failed for {self.scenario_file.name}:"
+                    )
                     for err in val_result.errors:
                         print(f"   - {err.format_for_llm()}")
                     raise ValueError("Cannot run an invalid scenario file.")
@@ -270,11 +294,19 @@ class ScenarioRunner:
             self.scenario_data = raw_data
             print(f"[*] Mode            : SINGLE SCENARIO")
             print(f"[*] Loaded Scenario : '{self.scenario_data.get('scenario_id')}'")
-            print(f"[*] Category        : [{self.scenario_data.get('category', 'unknown').upper()}]")
-            print(f"[*] Goal File       : {self.goal_file.name if self.goal_file else 'None (replay only)'}")
+            print(
+                f"[*] Category        : [{self.scenario_data.get('category', 'unknown').upper()}]"
+            )
+            print(
+                f"[*] Goal File       : {self.goal_file.name if self.goal_file else 'None (replay only)'}"
+            )
             print(f"[*] Duration        : {self.scenario_data.get('duration')}s")
-            print(f"[*] Signals Count   : {len(self.scenario_data.get('continuous_signals', []))}")
-            print(f"[*] Events Count    : {len(self.scenario_data.get('discrete_events', []))}")
+            print(
+                f"[*] Signals Count   : {len(self.scenario_data.get('continuous_signals', []))}"
+            )
+            print(
+                f"[*] Events Count    : {len(self.scenario_data.get('discrete_events', []))}"
+            )
 
     def _init_csv_logger(self) -> None:
         """Creates a timestamped CSV results file in a 'results/' subfolder next to the input file."""
@@ -286,7 +318,9 @@ class ScenarioRunner:
             if self.is_sweep_mode
             else self.scenario_data.get("scenario_id", "scenario")
         )
-        safe_tag = "".join(c if (c.isalnum() or c in ("-", "_")) else "_" for c in str(run_tag))
+        safe_tag = "".join(
+            c if (c.isalnum() or c in ("-", "_")) else "_" for c in str(run_tag)
+        )
         ts_str = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.csv_path = results_dir / f"{safe_tag}_{ts_str}.csv"
 
@@ -299,14 +333,18 @@ class ScenarioRunner:
     def _reset_run_telemetry(self) -> None:
         """Clears captured RTMonitor events before starting a new scenario execution."""
         with self._event_lock:
+            self._started_event.clear()
             self._finished_event.clear()
             self._current_sim_time = 0.0
             self._scenario_finished_data = None
             self._first_failed_goal = None
             self._first_failed_sim_time = None
+            self._entity_warnings = []
+            self._first_warning_sim_time = None
 
     def _on_rtmonitor_event(self, msg: Any, topic: Optional[str] = None) -> None:
         """Callback invoked when goalee's RTMonitor publishes an EventMsg on goaldsl.*.event."""
+
         if isinstance(msg, dict):
             evt_type = msg.get("type", "")
             evt_data = msg.get("data") or {}
@@ -315,7 +353,10 @@ class ScenarioRunner:
             evt_data = getattr(msg, "data", None) or {}
 
         with self._event_lock:
-            if evt_type == "goal_state":
+            if evt_type == "scenario_started":
+                self._started_event.set()
+
+            elif evt_type == "goal_state":
                 state = str(evt_data.get("state", "")).upper()
                 goal_name = str(evt_data.get("goal_name", ""))
                 if state == "FAILED" and self._first_failed_goal is None:
@@ -336,7 +377,9 @@ class ScenarioRunner:
             if self.is_sweep_mode
             else self.scenario_data.get("scenario_id", "sim")
         )
-        source_scenario = self.baseline_data if self.is_sweep_mode else self.scenario_data
+        source_scenario = (
+            self.baseline_data if self.is_sweep_mode else self.scenario_data
+        )
 
         self.node = Node(
             node_name=f"scenario_runner_{run_label}",
@@ -361,12 +404,14 @@ class ScenarioRunner:
             msg_type=EventMsg,
             on_message=self._on_rtmonitor_event,
         )
-        print(f"    - Registered RTMonitor pattern listener: {RTMONITOR_WILDCARD_TOPIC}")
+        print(
+            f"    - Registered RTMonitor pattern listener: {RTMONITOR_WILDCARD_TOPIC}"
+        )
 
         if self.goal_model_content is not None:
-            rpc_name = os.getenv("EXECUTE_MODEL_RPC", "goaldsl.{ID}.deploy_sync").replace(
-                "{ID}", self.target_uid
-            )
+            rpc_name = os.getenv(
+                "EXECUTE_MODEL_RPC", "goaldsl.{ID}.deploy_sync"
+            ).replace("{ID}", self.target_uid)
             self.deploy_rpc = self.node.create_rpc_client(
                 msg_type=ExecuteModelMsg,
                 rpc_name=rpc_name,
@@ -395,8 +440,14 @@ class ScenarioRunner:
             print(f"❌ Executor rejected model deployment: {err_detail}")
             return False
 
-        print(f"[*] Model deployed successfully ({resp.result}). Waiting {self.deploy_wait:.2f}s for runner startup...")
-        if self.deploy_wait > 0:
+        print(
+            f"[*] Model deployed successfully ({resp.result}). Waiting for goalee scenario_started..."
+        )
+        if self._started_event.wait(timeout=DEFAULT_START_SYNC_WAIT):
+            print(
+                "[*] Received RTMonitor scenario_started; starting telemetry at t=0.0s."
+            )
+        elif self.deploy_wait > 0:
             time.sleep(self.deploy_wait)
         return True
 
@@ -429,7 +480,9 @@ class ScenarioRunner:
             raw_score = fin.get("score")
             final_score = round(float(raw_score), 4) if raw_score is not None else ""
             results = fin.get("results") or []
-            all_passed = bool(results) and all(bool(item[1]) for item in results if len(item) >= 2)
+            all_passed = bool(results) and all(
+                bool(item[1]) for item in results if len(item) >= 2
+            )
             verdict = "PASS" if all_passed else "FAIL"
 
             if failed_goal is None and not all_passed:
@@ -439,7 +492,9 @@ class ScenarioRunner:
                         break
 
             elapsed_ms = fin.get("elapsed_time")
-            goalee_elapsed_s = round(float(elapsed_ms) / 1000.0, 3) if elapsed_ms is not None else ""
+            goalee_elapsed_s = (
+                round(float(elapsed_ms) / 1000.0, 3) if elapsed_ms is not None else ""
+            )
             goal_results_str = "; ".join(
                 f"{item[0]}={'PASS' if item[1] else 'FAIL'}"
                 for item in results
@@ -454,10 +509,16 @@ class ScenarioRunner:
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
             "mode": "sweep" if case_meta is not None else "single",
             "scenario_id": scenario_id,
-            "fault_id": case_meta.get("fault_id", "nominal") if case_meta else "nominal",
+            "fault_id": case_meta.get("fault_id", "nominal")
+            if case_meta
+            else "nominal",
             "entity_name": case_meta.get("entity_name", "N/A") if case_meta else "N/A",
-            "in_goal_spec": case_meta.get("in_goal_spec", "N/A") if case_meta else "N/A",
-            "fault_type": case_meta.get("fault_type", "nominal") if case_meta else "nominal",
+            "in_goal_spec": case_meta.get("in_goal_spec", "N/A")
+            if case_meta
+            else "N/A",
+            "fault_type": case_meta.get("fault_type", "nominal")
+            if case_meta
+            else "nominal",
             "inject_time_s": inject_time if inject_time is not None else "",
             "verdict": verdict,
             "final_score": final_score,
@@ -474,10 +535,14 @@ class ScenarioRunner:
 
         score_disp = f"{final_score:.2f}" if isinstance(final_score, float) else "N/A"
         fail_disp = f" | Failed Goal: {failed_goal}" if failed_goal else ""
-        lat_disp = f" | Latency: {detection_latency_s}s" if detection_latency_s != "" else ""
+        lat_disp = (
+            f" | Latency: {detection_latency_s}s" if detection_latency_s != "" else ""
+        )
         print(f"📋 VERDICT: {verdict} | Score: {score_disp}{fail_disp}{lat_disp}")
         if verdict == "NO_RTMONITOR":
-            print("   ⚠️ No RTMonitor event received (verify RTMonitor block is present in .goal file).")
+            print(
+                "   ⚠️ No RTMonitor event received (verify RTMonitor block is present in .goal file)."
+            )
 
         return row
 
@@ -512,7 +577,9 @@ class ScenarioRunner:
 
         print("\n" + "=" * 60)
         print(f"▶️ RUNNING SCENARIO: {scenario_id}")
-        print(f"   Rate: {self.frequency_hz} Hz (step = {self.period_sec:.3f}s) | Scale: {self.time_scale}x")
+        print(
+            f"   Rate: {self.frequency_hz} Hz (step = {self.period_sec:.3f}s) | Scale: {self.time_scale}x"
+        )
         print("=" * 60)
 
         try:
@@ -531,7 +598,10 @@ class ScenarioRunner:
 
                 # Dispatch any discrete events scheduled at or before the current timestamp
                 for idx, event in enumerate(discrete_events):
-                    if idx not in dispatched_event_indices and event.get("time", 0.0) <= sim_time:
+                    if (
+                        idx not in dispatched_event_indices
+                        and event.get("time", 0.0) <= sim_time
+                    ):
                         topic = event["topic"]
                         attr = event["attribute"]
                         val = event["value"]
@@ -565,19 +635,25 @@ class ScenarioRunner:
                 # Status ticker every second of simulation time
                 if int(sim_time) != int(sim_time - self.period_sec) or sim_time == 0.0:
                     pct = (sim_time / duration) * 100.0 if duration > 0 else 100.0
-                    print(f"   ⏳ [t={sim_time:6.2f}s / {duration:.1f}s] ({pct:5.1f}%) Streaming telemetry...")
+                    print(
+                        f"   ⏳ [t={sim_time:6.2f}s / {duration:.1f}s] ({pct:5.1f}%) Streaming telemetry..."
+                    )
 
                 # Advance clock
                 sim_time += self.period_sec
 
                 # Maintain loop frequency adjusted for time scaling
-                target_sleep = (self.period_sec / self.time_scale) - (time.time() - step_start_wall)
+                target_sleep = (self.period_sec / self.time_scale) - (
+                    time.time() - step_start_wall
+                )
                 if target_sleep > 0:
                     time.sleep(target_sleep)
 
             # Wait briefly for goalee's final verdict if the stream reached duration end first
             if not self._finished_event.is_set() and DEFAULT_POST_VERDICT_WAIT > 0:
-                print(f"   ⏳ Waiting up to {DEFAULT_POST_VERDICT_WAIT:.1f}s for final RTMonitor verdict...")
+                print(
+                    f"   ⏳ Waiting up to {DEFAULT_POST_VERDICT_WAIT:.1f}s for final RTMonitor verdict..."
+                )
                 self._finished_event.wait(timeout=DEFAULT_POST_VERDICT_WAIT)
 
         except KeyboardInterrupt:
@@ -586,7 +662,9 @@ class ScenarioRunner:
 
         elapsed_wall = time.time() - wall_start_time
         print("\n" + "=" * 60)
-        print(f"🏁 SCENARIO COMPLETED | Simulated: {min(sim_time, duration):.2f}s | Wall Clock: {elapsed_wall:.2f}s")
+        print(
+            f"🏁 SCENARIO COMPLETED | Simulated: {min(sim_time, duration):.2f}s | Wall Clock: {elapsed_wall:.2f}s"
+        )
         row = self._record_case_result(
             scenario_id=scenario_id,
             elapsed_wall=elapsed_wall,
@@ -603,7 +681,9 @@ class ScenarioRunner:
             if not self.is_sweep_mode:
                 self._reset_run_telemetry()
                 if not self._deploy_goal_model():
-                    print("🛑 Aborting scenario execution due to model deployment failure.")
+                    print(
+                        "🛑 Aborting scenario execution due to model deployment failure."
+                    )
                     return
                 self._execute_single_scenario(self.scenario_data)
                 if self.csv_path:
@@ -658,11 +738,15 @@ class ScenarioRunner:
                 self._reset_run_telemetry()
 
                 if auto_deploy and not self._deploy_goal_model():
-                    print(f"🛑 Stopping fault sweep at case [{case_num}/{total_cases}] due to deployment failure.")
+                    print(
+                        f"🛑 Stopping fault sweep at case [{case_num}/{total_cases}] due to deployment failure."
+                    )
                     break
 
                 mutated_scenario = materialize_fault_scenario(self.baseline_data, case)
-                result_row = self._execute_single_scenario(mutated_scenario, case_meta=case)
+                result_row = self._execute_single_scenario(
+                    mutated_scenario, case_meta=case
+                )
                 if result_row is None:
                     print("🛑 Stopping fault sweep due to manual interruption.")
                     break
