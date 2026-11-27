@@ -516,11 +516,34 @@ def run_scenario_generation_pipeline(
 
 
 if __name__ == "__main__":
-    default_world_file = WORLD_MODELS_DIR / "world_model.yaml"
-    default_goal_file = DATA_DIR / "test_broker.goal"
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Run Stage 3 Scenario & Fault Generation Pipeline."
+    )
+    parser.add_argument(
+        "--world",
+        type=str,
+        default=str(WORLD_MODELS_DIR / "world_model.yaml"),
+        help="Path to the EnvPop world model YAML file.",
+    )
+    parser.add_argument(
+        "--goal",
+        type=str,
+        default=str(DATA_DIR / "llm_created_file.goal"),
+        help="Path to the validated .goal file.",
+    )
+    parser.add_argument(
+        "--categories",
+        nargs="+",
+        default=None,
+        help="Optional subset of categories to generate (e.g., nominal operational fault security).",
+    )
+    args = parser.parse_args()
 
     pipeline_output = run_scenario_generation_pipeline(
-        goal_dsl_input=default_goal_file,
-        yaml_world_file=default_world_file,
+        goal_dsl_input=Path(args.goal),
+        yaml_world_file=Path(args.world),
         max_retries=MAX_RETRIES,
+        categories=args.categories,
     )
