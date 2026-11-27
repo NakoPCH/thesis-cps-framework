@@ -1,0 +1,7 @@
+timestamp_utc,mode,scenario_id,fault_id,entity_name,in_goal_spec,fault_type,inject_time_s,verdict,final_score,failed_goal,detection_latency_s,goalee_elapsed_s,wall_elapsed_s,goal_results
+2026-11-25T20:43:43.721585+00:00,sweep,fault_waterbot_freeze,fault_waterbot_freeze,WaterBot,True,freeze,36.0,FAIL,0.0,WaterPlants,83.0,121.078,121.041,WaterPlants=FAIL
+2026-11-25T20:45:47.316620+00:00,sweep,fault_waterbot_zero,fault_waterbot_zero,WaterBot,True,zero,36.0,FAIL,0.0,WaterPlants,84.0,121.171,121.04,WaterPlants=FAIL
+2026-11-25T20:47:50.704897+00:00,sweep,fault_waterbot_no_tx,fault_waterbot_no_tx,WaterBot,True,no_tx,36.0,FAIL,0.0,WaterPlants,84.0,121.1,121.039,WaterPlants=FAIL
+2026-11-25T20:49:30.239264+00:00,sweep,fault_climatesensor_freeze,fault_climatesensor_freeze,ClimateSensor,True,freeze,36.0,PASS,1.0,,,97.215,97.039,WaterPlants=PASS
+2026-11-25T20:51:09.695445+00:00,sweep,fault_climatesensor_zero,fault_climatesensor_zero,ClimateSensor,True,zero,36.0,PASS,1.0,,,97.219,97.031,WaterPlants=PASS
+2026-11-25T20:52:49.293004+00:00,sweep,fault_climatesensor_no_tx,fault_climatesensor_no_tx,ClimateSensor,True,no_tx,36.0,PASS,1.0,,,97.216,97.032,WaterPlants=PASS

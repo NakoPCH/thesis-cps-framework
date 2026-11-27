@@ -6,30 +6,68 @@ Broker<MQTT> LocalEMQX
         password: ''
 end
 
-Entity ForkliftBot
-    type: actuator
-    uri: 'warehouse.robot.forklift'
+Entity ClimateSensor
+    type: sensor
+    uri: 'greenhouse.sensors.humidity'
     source: LocalEMQX
     attributes:
-        - speed: float
-        - forkHeight: float
+        - humidity: float
+end
+
+Entity WaterBot
+    type: hybrid
+    uri: 'greenhouse.robot.actuator'
+    source: LocalEMQX
+    attributes:
+        - waterLevel: float
         - battery: float
         - position: dict
 end
 
-Goal<EntityStateCondition> BatteryCondition
-    condition: (ForkliftBot.battery > 20.0)
+Goal<EntityStateCondition> CheckBattery
+    condition: (WaterBot.battery > 20.0)
 end
 
-Goal<EntityStateCondition> SpeedViolation
-    condition: (ForkliftBot.speed > 10.0)
+Goal<EntityStateCondition> CheckHumidity
+    condition: (ClimateSensor.humidity < 40.0)
 end
 
+Goal<Position> MoveToRefillStation
+    entity: WaterBot
+    position: Point2D(5.0, 5.0)
+    maxDeviation: 0.5
+end
 
-Scenario ForkliftOperationalScenario
+Goal<EntityStateCondition> CheckWaterLevel
+    condition: (WaterBot.waterLevel > 90.0)
+end
+
+Goal<Position> MoveToPlant
+    entity: WaterBot
+    position: Point2D(10.0, 10.0)
+    maxDeviation: 0.5
+end
+
+Goal<Complex> WaterPlants
     goals:
-        - BatteryCondition
-    fatals:
-        - SpeedViolation
+        - CheckBattery -> 0.9
+        - CheckHumidity -> 0.8
+        - MoveToRefillStation -> 0.7
+        - CheckWaterLevel -> 0.6
+        - MoveToPlant -> 0.5
+    strategy: ALL_ACCOMPLISHED_ORDERED
+    timeConstraints:
+        - FROM_GOAL_START(<120)
+end
+
+RTMonitor
+    broker: LocalEMQX
+    eventTopic: "goaldsl.{U_ID}.event"
+    logsTopic: "goaldsl.{U_ID}.log"
+end
+
+Scenario GreenhouseMaintenance
+    goals:
+        - WaterPlants
     concurrent: False
 end

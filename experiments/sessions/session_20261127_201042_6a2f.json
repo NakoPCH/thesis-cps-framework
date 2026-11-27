@@ -1,0 +1,409 @@
+{
+  "session_id": "session_20261127_201042_6a2f",
+  "timestamp": "2026-11-27T20:13:40.492282",
+  "model": "nvidia/nemotron-3.5-lightning:free",
+  "overall_status": "ABORTED_IN_STAGE1",
+  "total_latency_seconds": 178.01,
+  "world_model_file": "data\\world_models\\hospital_world_model.yaml",
+  "world_model_snapshot": {
+    "simulation": {
+      "name": "streamsim"
+    },
+    "map": {
+      "width": 1500,
+      "height": 1000,
+      "resolution": 0.02,
+      "obstacles": {
+        "lines": [
+          {
+            "x1": 0.0,
+            "y1": 0.0,
+            "x2": 30.0,
+            "y2": 0.0
+          },
+          {
+            "x1": 30.0,
+            "y1": 0.0,
+            "x2": 30.0,
+            "y2": 20.0
+          },
+          {
+            "x1": 30.0,
+            "y1": 20.0,
+            "x2": 0.0,
+            "y2": 20.0
+          },
+          {
+            "x1": 0.0,
+            "y1": 20.0,
+            "x2": 0.0,
+            "y2": 0.0
+          },
+          {
+            "x1": 12.0,
+            "y1": 0.0,
+            "x2": 12.0,
+            "y2": 7.0
+          },
+          {
+            "x1": 12.0,
+            "y1": 9.0,
+            "x2": 12.0,
+            "y2": 20.0
+          }
+        ]
+      }
+    },
+    "world": {
+      "name": "HospitalLogisticsWorld",
+      "places": [
+        "pharmacy",
+        "corridor",
+        "ward_a",
+        "service_bay"
+      ],
+      "pois": [
+        {
+          "name": "PharmacyDispense",
+          "place": "pharmacy",
+          "pose": {
+            "x": 2.0,
+            "y": 2.0,
+            "theta": 0
+          }
+        },
+        {
+          "name": "FireDoorCheckpoint",
+          "place": "corridor",
+          "pose": {
+            "x": 12.0,
+            "y": 8.0,
+            "theta": 0
+          }
+        },
+        {
+          "name": "NurseStationA",
+          "place": "ward_a",
+          "pose": {
+            "x": 24.0,
+            "y": 8.0,
+            "theta": 0
+          }
+        },
+        {
+          "name": "ChargingBay",
+          "place": "service_bay",
+          "pose": {
+            "x": 2.0,
+            "y": 14.0,
+            "theta": 0
+          }
+        }
+      ],
+      "properties": {
+        "temperature": {
+          "operation": "constant",
+          "operation_parameters": {
+            "constant": {
+              "value": 21.0
+            }
+          }
+        },
+        "humidity": {
+          "operation": "constant",
+          "operation_parameters": {
+            "constant": {
+              "value": 45.0
+            }
+          }
+        },
+        "co2": {
+          "operation": "constant",
+          "operation_parameters": {
+            "constant": {
+              "value": 420.0
+            }
+          }
+        }
+      }
+    },
+    "robots": [
+      {
+        "name": "MedBot",
+        "mode": "simulation",
+        "place": "pharmacy",
+        "category": "actuators",
+        "pose": {
+          "x": 2.0,
+          "y": 2.0,
+          "theta": 0
+        },
+        "transports": {
+          "publishers": [
+            {
+              "topic": "hospital.robot.medbot",
+              "payload": {
+                "battery": "number",
+                "cargoTemp": "number",
+                "payloadSecured": "number",
+                "position": "object"
+              }
+            }
+          ],
+          "subscribers": [
+            {
+              "topic": "hospital.robot.medbot",
+              "payload": {
+                "battery": "number",
+                "cargoTemp": "number",
+                "payloadSecured": "number",
+                "position": "object"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "SanitizerBot",
+        "mode": "simulation",
+        "place": "service_bay",
+        "category": "actuators",
+        "pose": {
+          "x": 2.0,
+          "y": 14.0,
+          "theta": 0
+        },
+        "transports": {
+          "publishers": [
+            {
+              "topic": "hospital.robot.sanitizer",
+              "payload": {
+                "battery": "number",
+                "uvActive": "number",
+                "position": "object"
+              }
+            }
+          ],
+          "subscribers": [
+            {
+              "topic": "hospital.robot.sanitizer",
+              "payload": {
+                "battery": "number",
+                "uvActive": "number",
+                "position": "object"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "env_devices": {
+      "pan_tilt": [],
+      "ph_sensors": [],
+      "temperature_sensors": [
+        {
+          "name": "PharmacyCoolerSensor",
+          "mode": "simulation",
+          "place": "pharmacy",
+          "operation": "constant",
+          "pose": {
+            "x": 1.5,
+            "y": 3.0,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": false,
+          "proximity_distance": 5,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 4.0
+            }
+          },
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.sensors.pharmacy_cooler",
+                "payload": {
+                  "coolerTemp": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "humidity_sensors": [],
+      "gas_sensors": [
+        {
+          "name": "WardAirQualitySensor",
+          "mode": "simulation",
+          "place": "ward_a",
+          "operation": "constant",
+          "pose": {
+            "x": 25.0,
+            "y": 6.0,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": false,
+          "proximity_distance": 10,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 420.0
+            }
+          },
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.sensors.ward_air_quality",
+                "payload": {
+                  "co2": "number",
+                  "gasLevel": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "camera_sensors": [],
+      "distance_sensors": [
+        {
+          "name": "CorridorProximitySensor",
+          "mode": "simulation",
+          "place": "corridor",
+          "operation": "constant",
+          "pose": {
+            "x": 14.0,
+            "y": 8.0,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": true,
+          "proximity_distance": 4,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 3.5
+            }
+          },
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.sensors.corridor_proximity",
+                "payload": {
+                  "minObstacleDist": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "alarms_linear": [],
+      "alarms_area": [],
+      "ambient_light_sensor": [
+        {
+          "name": "CorridorLightSensor",
+          "mode": "simulation",
+          "place": "corridor",
+          "operation": "constant",
+          "pose": {
+            "x": 16.0,
+            "y": 9.5,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": false,
+          "proximity_distance": 8,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 300.0
+            }
+          },
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.sensors.corridor_light",
+                "payload": {
+                  "lux": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "microphones": [],
+      "relays": [
+        {
+          "name": "CorridorDoor",
+          "mode": "simulation",
+          "place": "corridor",
+          "operation": "constant",
+          "pose": {
+            "x": 12.0,
+            "y": 8.0,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": false,
+          "proximity_distance": 2,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 1.0
+            }
+          },
+          "category": "actuators",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.actuators.corridor_door",
+                "payload": {
+                  "doorState": "number",
+                  "obstruction": "number"
+                }
+              }
+            ],
+            "subscribers": [
+              {
+                "topic": "hospital.actuators.corridor_door",
+                "payload": {
+                  "doorState": "number",
+                  "obstruction": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "speakers": [],
+      "lights": [],
+      "thermostats": [],
+      "humidifiers": []
+    },
+    "actors": {
+      "humans": [],
+      "collectibles": [],
+      "sound_sources": [],
+      "qrs": [],
+      "barcodes": [],
+      "colors": [],
+      "texts": [],
+      "rfid_tags": [],
+      "fires": [],
+      "waters": []
+    }
+  },
+  "stage1_dialogue": {
+    "world_model_file": "data\\world_models\\hospital_world_model.yaml",
+    "total_turns": 0,
+    "dialogue_turns": [],
+    "refined_prompt": null
+  },
+  "stage2_verification": null
+}

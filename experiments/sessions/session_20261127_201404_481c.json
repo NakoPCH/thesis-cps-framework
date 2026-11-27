@@ -1,0 +1,452 @@
+{
+  "session_id": "session_20261127_201404_481c",
+  "timestamp": "2026-11-27T20:17:29.198762",
+  "model": "nvidia/nemotron-3.5-lightning:free",
+  "overall_status": "SUCCESS",
+  "total_latency_seconds": 204.18,
+  "world_model_file": "data\\world_models\\hospital_world_model.yaml",
+  "world_model_snapshot": {
+    "simulation": {
+      "name": "streamsim"
+    },
+    "map": {
+      "width": 1500,
+      "height": 1000,
+      "resolution": 0.02,
+      "obstacles": {
+        "lines": [
+          {
+            "x1": 0.0,
+            "y1": 0.0,
+            "x2": 30.0,
+            "y2": 0.0
+          },
+          {
+            "x1": 30.0,
+            "y1": 0.0,
+            "x2": 30.0,
+            "y2": 20.0
+          },
+          {
+            "x1": 30.0,
+            "y1": 20.0,
+            "x2": 0.0,
+            "y2": 20.0
+          },
+          {
+            "x1": 0.0,
+            "y1": 20.0,
+            "x2": 0.0,
+            "y2": 0.0
+          },
+          {
+            "x1": 12.0,
+            "y1": 0.0,
+            "x2": 12.0,
+            "y2": 7.0
+          },
+          {
+            "x1": 12.0,
+            "y1": 9.0,
+            "x2": 12.0,
+            "y2": 20.0
+          }
+        ]
+      }
+    },
+    "world": {
+      "name": "HospitalLogisticsWorld",
+      "places": [
+        "pharmacy",
+        "corridor",
+        "ward_a",
+        "service_bay"
+      ],
+      "pois": [
+        {
+          "name": "PharmacyDispense",
+          "place": "pharmacy",
+          "pose": {
+            "x": 2.0,
+            "y": 2.0,
+            "theta": 0
+          }
+        },
+        {
+          "name": "FireDoorCheckpoint",
+          "place": "corridor",
+          "pose": {
+            "x": 12.0,
+            "y": 8.0,
+            "theta": 0
+          }
+        },
+        {
+          "name": "NurseStationA",
+          "place": "ward_a",
+          "pose": {
+            "x": 24.0,
+            "y": 8.0,
+            "theta": 0
+          }
+        },
+        {
+          "name": "ChargingBay",
+          "place": "service_bay",
+          "pose": {
+            "x": 2.0,
+            "y": 14.0,
+            "theta": 0
+          }
+        }
+      ],
+      "properties": {
+        "temperature": {
+          "operation": "constant",
+          "operation_parameters": {
+            "constant": {
+              "value": 21.0
+            }
+          }
+        },
+        "humidity": {
+          "operation": "constant",
+          "operation_parameters": {
+            "constant": {
+              "value": 45.0
+            }
+          }
+        },
+        "co2": {
+          "operation": "constant",
+          "operation_parameters": {
+            "constant": {
+              "value": 420.0
+            }
+          }
+        }
+      }
+    },
+    "robots": [
+      {
+        "name": "MedBot",
+        "mode": "simulation",
+        "place": "pharmacy",
+        "category": "actuators",
+        "pose": {
+          "x": 2.0,
+          "y": 2.0,
+          "theta": 0
+        },
+        "transports": {
+          "publishers": [
+            {
+              "topic": "hospital.robot.medbot",
+              "payload": {
+                "battery": "number",
+                "cargoTemp": "number",
+                "payloadSecured": "number",
+                "position": "object"
+              }
+            }
+          ],
+          "subscribers": [
+            {
+              "topic": "hospital.robot.medbot",
+              "payload": {
+                "battery": "number",
+                "cargoTemp": "number",
+                "payloadSecured": "number",
+                "position": "object"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "SanitizerBot",
+        "mode": "simulation",
+        "place": "service_bay",
+        "category": "actuators",
+        "pose": {
+          "x": 2.0,
+          "y": 14.0,
+          "theta": 0
+        },
+        "transports": {
+          "publishers": [
+            {
+              "topic": "hospital.robot.sanitizer",
+              "payload": {
+                "battery": "number",
+                "uvActive": "number",
+                "position": "object"
+              }
+            }
+          ],
+          "subscribers": [
+            {
+              "topic": "hospital.robot.sanitizer",
+              "payload": {
+                "battery": "number",
+                "uvActive": "number",
+                "position": "object"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "env_devices": {
+      "pan_tilt": [],
+      "ph_sensors": [],
+      "temperature_sensors": [
+        {
+          "name": "PharmacyCoolerSensor",
+          "mode": "simulation",
+          "place": "pharmacy",
+          "operation": "constant",
+          "pose": {
+            "x": 1.5,
+            "y": 3.0,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": false,
+          "proximity_distance": 5,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 4.0
+            }
+          },
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.sensors.pharmacy_cooler",
+                "payload": {
+                  "coolerTemp": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "humidity_sensors": [],
+      "gas_sensors": [
+        {
+          "name": "WardAirQualitySensor",
+          "mode": "simulation",
+          "place": "ward_a",
+          "operation": "constant",
+          "pose": {
+            "x": 25.0,
+            "y": 6.0,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": false,
+          "proximity_distance": 10,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 420.0
+            }
+          },
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.sensors.ward_air_quality",
+                "payload": {
+                  "co2": "number",
+                  "gasLevel": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "camera_sensors": [],
+      "distance_sensors": [
+        {
+          "name": "CorridorProximitySensor",
+          "mode": "simulation",
+          "place": "corridor",
+          "operation": "constant",
+          "pose": {
+            "x": 14.0,
+            "y": 8.0,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": true,
+          "proximity_distance": 4,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 3.5
+            }
+          },
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.sensors.corridor_proximity",
+                "payload": {
+                  "minObstacleDist": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "alarms_linear": [],
+      "alarms_area": [],
+      "ambient_light_sensor": [
+        {
+          "name": "CorridorLightSensor",
+          "mode": "simulation",
+          "place": "corridor",
+          "operation": "constant",
+          "pose": {
+            "x": 16.0,
+            "y": 9.5,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": false,
+          "proximity_distance": 8,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 300.0
+            }
+          },
+          "category": "sensors",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.sensors.corridor_light",
+                "payload": {
+                  "lux": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "microphones": [],
+      "relays": [
+        {
+          "name": "CorridorDoor",
+          "mode": "simulation",
+          "place": "corridor",
+          "operation": "constant",
+          "pose": {
+            "x": 12.0,
+            "y": 8.0,
+            "theta": 0
+          },
+          "state": "on",
+          "proximity_mode": false,
+          "proximity_distance": 2,
+          "hz": 1,
+          "operation_parameters": {
+            "constant": {
+              "value": 1.0
+            }
+          },
+          "category": "actuators",
+          "transports": {
+            "publishers": [
+              {
+                "topic": "hospital.actuators.corridor_door",
+                "payload": {
+                  "doorState": "number",
+                  "obstruction": "number"
+                }
+              }
+            ],
+            "subscribers": [
+              {
+                "topic": "hospital.actuators.corridor_door",
+                "payload": {
+                  "doorState": "number",
+                  "obstruction": "number"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "speakers": [],
+      "lights": [],
+      "thermostats": [],
+      "humidifiers": []
+    },
+    "actors": {
+      "humans": [],
+      "collectibles": [],
+      "sound_sources": [],
+      "qrs": [],
+      "barcodes": [],
+      "colors": [],
+      "texts": [],
+      "rfid_tags": [],
+      "fires": [],
+      "waters": []
+    }
+  },
+  "stage1_dialogue": {
+    "world_model_file": "data\\world_models\\hospital_world_model.yaml",
+    "total_turns": 2,
+    "dialogue_turns": [
+      {
+        "turn": 1,
+        "user_input": "Create a hospital medication delivery scenario on an MQTT broker on localhost at port 1883, using only three entities from the world model (leaving SanitizerBot, CorridorDoor, WardAirQualitySensor, and CorridorLightSensor completely out of the scenario): PharmacyCoolerSensor (type sensor, URI hospital.sensors.pharmacy_cooler, float attribute coolerTemp), CorridorProximitySensor (type sensor, URI hospital.sensors.corridor_proximity, float attribute minObstacleDist), and MedBot (type hybrid, URI hospital.robot.medbot, float attributes battery, cargoTemp, and payloadSecured, and dict attribute position). Define five primitive goals in sequential order: first, an EntityStateCondition goal named CheckCoolerTemp requiring PharmacyCoolerSensor.coolerTemp < 6.0; second, an EntityStateCondition goal named CheckCorridorClear requiring CorridorProximitySensor.minObstacleDist > 1.5; third, an EntityStateCondition goal named CheckMedBotReady requiring MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5; fourth, a Position goal named PassCheckpoint for MedBot to reach FireDoorCheckpoint at Point2D(12.0, 8.0) with maxDeviation 0.5; and fifth, a Position goal named DeliverToWard for MedBot to reach NurseStationA at Point2D(24.0, 8.0) with maxDeviation 0.5. Group all five primitive goals into a single Complex goal named HospitalDeliveryMission with equal weights (0.2 each), execution strategy ALL_ACCOMPLISHED_ORDERED, and time constraint FROM_GOAL_START(<120). Finally, create a Scenario named HospitalDeliveryScenario that executes HospitalDeliveryMission.",
+        "assistant_reply": "=== SCENARIO SUMMARY ===\nScenario: Hospital medication delivery using MQTT broker on localhost at port 1883.\nEntities included (3 of 7 world-model entities):\n- PharmacyCoolerSensor (type: sensor, URI: hospital.sensors.pharmacy_cooler, attribute: float coolerTemp)\n- CorridorProximitySensor (type: sensor, URI: hospital.sensors.corridor_proximity, attribute: float minObstacleDist)\n- MedBot (type: hybrid, URI: hospital.robot.medbot, attributes: float battery, float cargoTemp, float payloadSecured, dict position)\nExcluded entities: SanitizerBot, CorridorDoor, WardAirQualitySensor, CorridorLightSensor.\n\nPrimitive goals (defined in sequential order):\n1. **CheckCoolerTemp**: EntityStateCondition ensuring PharmacyCoolerSensor.coolerTemp < 6.0\n2. **CheckCorridorClear**: EntityStateCondition ensuring CorridorProximitySensor.minObstacleDist > 1.5\n3. **CheckMedBotReady**: EntityStateCondition ensuring MedBot.battery > 20.0 AND MedBot.payloadSecured > 0.5\n4. **PassCheckpoint**: Position goal for MedBot to reach FireDoorCheckpoint at Point2D(12.0, 8.0) with maxDeviation 0.5\n5. **DeliverToWard**: Position goal for MedBot to reach NurseStationA at Point2D(24.0, 8.0) with maxDeviation 0.5\n\nComplex goal:\n- **HospitalDeliveryMission**: Bundles all 5 primitive goals with equal weights (0.2 each), execution strategy **ALL_ACCOMPLISHED_ORDERED**, and time constraint **FROM_GOAL_START(<120)**.\n\nScenario:\n- **HospitalDeliveryScenario** executes the **HospitalDeliveryMission** complex goal.\n\nDo you approve this specification?"
+      },
+      {
+        "turn": 2,
+        "user_input": "Yes",
+        "assistant_reply": "<<<REFINED_PROMPT>>>\nCreate a hospital medication delivery scenario in Goal DSL using an MQTT Broker on localhost at port 1883.\nDefine 3 entities: A sensor entity named PharmacyCoolerSensor at the URI hospital.sensors.pharmacy_cooler with a float attribute for coolerTemp, sourced from the pharmacy cooler sensor system. A sensor entity named CorridorProximitySensor at the URI hospital.sensors.corridor_proximity with a float attribute for minObstacleDist, sourced from the corridor proximity sensor system. A hybrid entity named MedBot at the URI hospital.robot.medbot with float attributes for battery, cargoTemp, and payloadSecured, and a dict attribute for position, sourced from the mobile robot system.\nDefine the following goals: An EntityStateCondition goal named CheckCoolerTemp to ensure PharmacyCoolerSensor.coolerTemp < 6.0. An EntityStateCondition goal named CheckCorridorClear to ensure CorridorProximitySensor.minObstacleDist > 1.5. An EntityStateCondition goal named CheckMedBotReady to ensure MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5. A Position goal named PassCheckpoint for MedBot to reach FireDoorCheckpoint at Point2D(12.0, 8.0) with a maximum deviation of 0.5. A Position goal named DeliverToWard for MedBot to reach NurseStationA at Point2D(24.0, 8.0) with a maximum deviation of 0.5.\nGroup the above five primitive goals into a Complex goal named HospitalDeliveryMission with equal weights of 0.2 each, execution strategy all accomplished ordered, and a time constraint FROM_GOAL_START(<120).\nFinally, create a Scenario named HospitalDeliveryScenario that executes the HospitalDeliveryMission goal.\n<<</REFINED_PROMPT>>>"
+      }
+    ],
+    "refined_prompt": "Create a hospital medication delivery scenario in Goal DSL using an MQTT Broker on localhost at port 1883.\nDefine 3 entities: A sensor entity named PharmacyCoolerSensor at the URI hospital.sensors.pharmacy_cooler with a float attribute for coolerTemp, sourced from the pharmacy cooler sensor system. A sensor entity named CorridorProximitySensor at the URI hospital.sensors.corridor_proximity with a float attribute for minObstacleDist, sourced from the corridor proximity sensor system. A hybrid entity named MedBot at the URI hospital.robot.medbot with float attributes for battery, cargoTemp, and payloadSecured, and a dict attribute for position, sourced from the mobile robot system.\nDefine the following goals: An EntityStateCondition goal named CheckCoolerTemp to ensure PharmacyCoolerSensor.coolerTemp < 6.0. An EntityStateCondition goal named CheckCorridorClear to ensure CorridorProximitySensor.minObstacleDist > 1.5. An EntityStateCondition goal named CheckMedBotReady to ensure MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5. A Position goal named PassCheckpoint for MedBot to reach FireDoorCheckpoint at Point2D(12.0, 8.0) with a maximum deviation of 0.5. A Position goal named DeliverToWard for MedBot to reach NurseStationA at Point2D(24.0, 8.0) with a maximum deviation of 0.5.\nGroup the above five primitive goals into a Complex goal named HospitalDeliveryMission with equal weights of 0.2 each, execution strategy all accomplished ordered, and a time constraint FROM_GOAL_START(<120).\nFinally, create a Scenario named HospitalDeliveryScenario that executes the HospitalDeliveryMission goal."
+  },
+  "stage2_verification": {
+    "status": "SUCCESS",
+    "run_id": "RUN-20261127-201529-73d6",
+    "total_attempts": 3,
+    "generated_code": "Broker<MQTT> HospitalMQTT\n    host: 'localhost'\n    port: 1883\n    auth:\n        username: ''\n        password: ''\nend\n\nEntity PharmacyCoolerSensor\n    type: sensor\n    uri: 'hospital.sensors.pharmacy_cooler'\n    source: HospitalMQTT\n    attributes:\n        - coolerTemp: float\nend\n\nEntity CorridorProximitySensor\n    type: sensor\n    uri: 'hospital.sensors.corridor_proximity'\n    source: HospitalMQTT\n    attributes:\n        - minObstacleDist: float\nend\n\nEntity MedBot\n    type: hybrid\n    uri: 'hospital.robot.medbot'\n    source: HospitalMQTT\n    attributes:\n        - battery: float\n        - cargoTemp: float\n        - payloadSecured: float\n        - position: dict\nend\n\nGoal<EntityStateCondition> CheckCoolerTemp\n    condition: (PharmacyCoolerSensor.coolerTemp < 6.0)\nend\n\nGoal<EntityStateCondition> CheckCorridorClear\n    condition: (CorridorProximitySensor.minObstacleDist > 1.5)\nend\n\nGoal<EntityStateCondition> CheckMedBotReady\n    condition: (MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5)\nend\n\nGoal<Position> PassCheckpoint\n    entity: MedBot\n    position: Point2D(12.0, 8.0)\n    maxDeviation: 0.5\nend\n\nGoal<Position> DeliverToWard\n    entity: MedBot\n    position: Point2D(24.0, 8.0)\n    maxDeviation: 0.5\nend\n\nGoal<Complex> HospitalDeliveryMission\n    goals:\n        - CheckCoolerTemp -> 0.2\n        - CheckCorridorClear -> 0.2\n        - CheckMedBotReady -> 0.2\n        - PassCheckpoint -> 0.2\n        - DeliverToWard -> 0.2\n    strategy: ALL_ACCOMPLISHED_ORDERED\n    timeConstraints:\n        - FROM_GOAL_START(<120)\nend\n\nScenario HospitalDeliveryScenario\n    goals:\n        - HospitalDeliveryMission\n    concurrent: False\nend",
+    "attempts": [
+      {
+        "attempt": 1,
+        "status": "FAILED",
+        "failed_tier": "Tier 1 (Syntax)",
+        "generated_code": "Broker<MQTT> HomeMQTT\n    host: 'localhost'\n    port: 1883\n    auth:\n        username: ''\n        password: ''\nend\n\nEntity PharmacyCoolerSensor\n    type: sensor\n    uri: 'hospital.sensors.pharmacy_cooler'\n    source: 'pharmacy_cooler_sensor_system'\n    attributes:\n        - coolerTemp: float\nend\n\nEntity CorridorProximitySensor\n    type: sensor\n    uri: 'hospital.sensors.corridor_proximity'\n    source: 'corridor_proximity_sensor_system'\n    attributes:\n        - minObstacleDist: float\nend\n\nEntity MedBot\n    type: hybrid\n    uri: 'hospital.robot.medbot'\n    source: 'mobile_robot_system'\n    attributes:\n        - battery: float\n        - cargoTemp: float\n        - payloadSecured: float\n        - position: dict\nend\n\nGoal<EntityStateCondition> CheckCoolerTemp\n    condition: (PharmacyCoolerSensor.coolerTemp < 6.0)\nend\n\nGoal<EntityStateCondition> CheckCorridorClear\n    condition: (CorridorProximitySensor.minObstacleDist > 1.5)\nend\n\nGoal<EntityStateCondition> CheckMedBotReady\n    condition: (MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5)\nend\n\nGoal<Position> PassCheckpoint\n    entity: MedBot\n    position: Point2D(12.0, 8.0)\n    maxDeviation: 0.5\nend\n\nGoal<Position> DeliverToWard\n    entity: MedBot\n    position: Point2D(24.0, 8.0)\n    maxDeviation: 0.5\nend\n\nGoal<Complex> HospitalDeliveryMission\n    goals:\n        - CheckCoolerTemp -> 0.2\n        - CheckCorridorClear -> 0.2\n        - CheckMedBotReady -> 0.2\n        - PassCheckpoint -> 0.2\n        - DeliverToWard -> 0.2\n    strategy: ALL_ACCOMPLISHED_ORDERED\n    timeConstraints:\n        - FROM_GOAL_START(<120)\nend\n\nScenario HospitalDeliveryScenario\n    goals:\n        - HospitalDeliveryMission\n    concurrent: False\nend",
+        "error_line_no": "12",
+        "error_code_line": "source: 'pharmacy_cooler_sensor_system'",
+        "error_message": "[*] Validation failed with error(s): C:\\Users\\Okan\\Desktop\\Thesus\\2. \nCode\\thesis-cps-framework\\data\\llm_created_file.goal:12:13: Expected ID => '  \nsource: *'pharmacy_'\n"
+      },
+      {
+        "attempt": 2,
+        "status": "FAILED",
+        "failed_tier": "Tier 1 (Syntax)",
+        "generated_code": "Broker<MQTT> HomeMQTT\n    host: 'localhost'\n    port: 1883\n    auth:\n        username: ''\n        password: ''\nend\n\nEntity PharmacyCoolerSensor\n    type: sensor\n    uri: 'hospital.sensors.pharmacy_cooler'\n    source: pharmacy_cooler_sensor_system\n    attributes:\n        - coolerTemp: float\nend\n\nEntity CorridorProximitySensor\n    type: sensor\n    uri: 'hospital.sensors.corridor_proximity'\n    source: corridor_proximity_sensor_system\n    attributes:\n        - minObstacleDist: float\nend\n\nEntity MedBot\n    type: hybrid\n    uri: 'hospital.robot.medbot'\n    source: mobile_robot_system\n    attributes:\n        - battery: float\n        - cargoTemp: float\n        - payloadSecured: float\n        - position: dict\nend\n\nGoal<EntityStateCondition> CheckCoolerTemp\n    condition: (PharmacyCoolerSensor.coolerTemp < 6.0)\nend\n\nGoal<EntityStateCondition> CheckCorridorClear\n    condition: (CorridorProximitySensor.minObstacleDist > 1.5)\nend\n\nGoal<EntityStateCondition> CheckMedBotReady\n    condition: (MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5)\nend\n\nGoal<Position> PassCheckpoint\n    entity: MedBot\n    position: Point2D(12.0, 8.0)\n    maxDeviation: 0.5\nend\n\nGoal<Position> DeliverToWard\n    entity: MedBot\n    position: Point2D(24.0, 8.0)\n    maxDeviation: 0.5\nend\n\nGoal<Complex> HospitalDeliveryMission\n    goals:\n        - CheckCoolerTemp -> 0.2\n        - CheckCorridorClear -> 0.2\n        - CheckMedBotReady -> 0.2\n        - PassCheckpoint -> 0.2\n        - DeliverToWard -> 0.2\n    strategy: ALL_ACCOMPLISHED_ORDERED\n    timeConstraints:\n        - FROM_GOAL_START(<120)\nend\n\nScenario HospitalDeliveryScenario\n    goals:\n        - HospitalDeliveryMission\n    concurrent: False\nend",
+        "error_line_no": "12",
+        "error_code_line": "source: pharmacy_cooler_sensor_system",
+        "error_message": "[*] Validation failed with error(s): C:\\Users\\Okan\\Desktop\\Thesus\\2. \nCode\\thesis-cps-framework\\data\\llm_created_file.goal:12:13: Unknown object \n\"pharmacy_cooler_sensor_system\" of class \"OBJECT\"\n"
+      },
+      {
+        "attempt": 3,
+        "status": "SUCCESS",
+        "failed_tier": null,
+        "generated_code": "Broker<MQTT> HospitalMQTT\n    host: 'localhost'\n    port: 1883\n    auth:\n        username: ''\n        password: ''\nend\n\nEntity PharmacyCoolerSensor\n    type: sensor\n    uri: 'hospital.sensors.pharmacy_cooler'\n    source: HospitalMQTT\n    attributes:\n        - coolerTemp: float\nend\n\nEntity CorridorProximitySensor\n    type: sensor\n    uri: 'hospital.sensors.corridor_proximity'\n    source: HospitalMQTT\n    attributes:\n        - minObstacleDist: float\nend\n\nEntity MedBot\n    type: hybrid\n    uri: 'hospital.robot.medbot'\n    source: HospitalMQTT\n    attributes:\n        - battery: float\n        - cargoTemp: float\n        - payloadSecured: float\n        - position: dict\nend\n\nGoal<EntityStateCondition> CheckCoolerTemp\n    condition: (PharmacyCoolerSensor.coolerTemp < 6.0)\nend\n\nGoal<EntityStateCondition> CheckCorridorClear\n    condition: (CorridorProximitySensor.minObstacleDist > 1.5)\nend\n\nGoal<EntityStateCondition> CheckMedBotReady\n    condition: (MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5)\nend\n\nGoal<Position> PassCheckpoint\n    entity: MedBot\n    position: Point2D(12.0, 8.0)\n    maxDeviation: 0.5\nend\n\nGoal<Position> DeliverToWard\n    entity: MedBot\n    position: Point2D(24.0, 8.0)\n    maxDeviation: 0.5\nend\n\nGoal<Complex> HospitalDeliveryMission\n    goals:\n        - CheckCoolerTemp -> 0.2\n        - CheckCorridorClear -> 0.2\n        - CheckMedBotReady -> 0.2\n        - PassCheckpoint -> 0.2\n        - DeliverToWard -> 0.2\n    strategy: ALL_ACCOMPLISHED_ORDERED\n    timeConstraints:\n        - FROM_GOAL_START(<120)\nend\n\nScenario HospitalDeliveryScenario\n    goals:\n        - HospitalDeliveryMission\n    concurrent: False\nend",
+        "error_message": null
+      }
+    ]
+  }
+}

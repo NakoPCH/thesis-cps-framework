@@ -1,9 +1,5 @@
-Create a Forklift Operational Constraints scenario in Goal DSL using a Redis Broker on localhost at port 6379.
-
-Define 1 entity: a hybrid entity named ForkliftBot at the URI 'warehouse.robot.forklift' with float attributes for speed, forkHeight, and battery, and a dict attribute for position, sourced from the warehouse robot module.
-
-Define the following goals: An EntityStateCondition goal named BatteryCondition to ensure the ForkliftBot's battery attribute is greater than 20.0. An EntityStateCondition goal named SpeedCondition to ensure the ForkliftBot's speed attribute does not exceed 10.0. A RectangleArea goal named AreaEnter for the ForkliftBot to ENTER a square region of side 10.0 whose center coincides with the LoadingDock coordinates (5.0, 15.0); the rectangle's bottom‑left edge is therefore (0.0, 10.0), with lengthX = 10.0, lengthY = 10.0, and tag ENTER.
-
-Group these sub‑goals into a Complex goal named ForkliftOperationalConstraints, assigning each sub‑goal a weight of 1.0, and specify the execution strategy as ALL_ACCOMPLISHED_ORDERED, requiring the entire set to be satisfied in the listed sequence within 350 seconds from the goal start (FROM_GOAL_START(<350)).
-
-Finally, create a Scenario named ForkliftOperationalScenario that executes the ForkliftOperationalConstraints goal.
+Create a hospital medication delivery scenario in Goal DSL using an MQTT Broker on localhost at port 1883.
+Define 3 entities: A sensor entity named PharmacyCoolerSensor at the URI hospital.sensors.pharmacy_cooler with a float attribute for coolerTemp, sourced from the pharmacy cooler sensor system. A sensor entity named CorridorProximitySensor at the URI hospital.sensors.corridor_proximity with a float attribute for minObstacleDist, sourced from the corridor proximity sensor system. A hybrid entity named MedBot at the URI hospital.robot.medbot with float attributes for battery, cargoTemp, and payloadSecured, and a dict attribute for position, sourced from the mobile robot system.
+Define the following goals: An EntityStateCondition goal named CheckCoolerTemp to ensure PharmacyCoolerSensor.coolerTemp < 6.0. An EntityStateCondition goal named CheckCorridorClear to ensure CorridorProximitySensor.minObstacleDist > 1.5. An EntityStateCondition goal named CheckMedBotReady to ensure MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5. A Position goal named PassCheckpoint for MedBot to reach FireDoorCheckpoint at Point2D(12.0, 8.0) with a maximum deviation of 0.5. A Position goal named DeliverToWard for MedBot to reach NurseStationA at Point2D(24.0, 8.0) with a maximum deviation of 0.5.
+Group the above five primitive goals into a Complex goal named HospitalDeliveryMission with equal weights of 0.2 each, execution strategy all accomplished ordered, and a time constraint FROM_GOAL_START(<120).
+Finally, create a Scenario named HospitalDeliveryScenario that executes the HospitalDeliveryMission goal.

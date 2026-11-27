@@ -1,0 +1,78 @@
+scenario_id: "greenhouse_resource_depletion_failure"
+category: "operational"
+description: "A scenario where the WaterBot attempts to fulfill the WaterPlants goal, but the humidity rises above the threshold and the battery drains, causing the sequential goal strategy to fail."
+duration: 120.0
+continuous_signals:
+  - topic: "greenhouse.sensors.humidity"
+    attribute: "humidity"
+    segments:
+      - time: 0.0
+        value: 35.0
+        rate: 0.0
+      - time: 40.0
+        value: 35.0
+        rate: 0.2
+      - time: 80.0
+        value: 43.0
+        rate: 0.0
+  - topic: "greenhouse.robot.actuator"
+    attribute: "battery"
+    segments:
+      - time: 0.0
+        value: 100.0
+        rate: -0.5
+      - time: 100.0
+        value: 50.0
+        rate: -0.1
+  - topic: "greenhouse.robot.actuator"
+    attribute: "waterLevel"
+    segments:
+      - time: 0.0
+        value: 95.0
+        rate: -0.2
+      - time: 50.0
+        value: 85.0
+        rate: 0.0
+  - topic: "greenhouse.robot.actuator"
+    attribute: "position.x"
+    segments:
+      - time: 0.0
+        value: 0.0
+        rate: 0.0
+      - time: 10.0
+        value: 0.0
+        rate: 0.4
+      - time: 30.0
+        value: 8.0
+        rate: 0.0
+      - time: 40.0
+        value: 5.0
+        rate: 0.0
+      - time: 60.0
+        value: 5.0
+        rate: 0.4
+      - time: 80.0
+        value: 10.0
+        rate: 0.0
+  - topic: "greenhouse.robot.actuator"
+    attribute: "position.y"
+    segments:
+      - time: 0.0
+        value: 0.0
+        rate: 0.0
+      - time: 10.0
+        value: 0.0
+        rate: 0.3
+      - time: 30.0
+        value: 6.0
+        rate: 0.0
+      - time: 40.0
+        value: 5.0
+        rate: 0.0
+      - time: 60.0
+        value: 5.0
+        rate: 0.4
+      - time: 80.0
+        value: 10.0
+        rate: 0.0
+discrete_events: []

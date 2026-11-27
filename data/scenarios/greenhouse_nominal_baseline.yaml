@@ -1,0 +1,78 @@
+scenario_id: "greenhouse_nominal_maintenance_cycle"
+category: "nominal"
+description: "A healthy maintenance cycle where WaterBot refills, moves to the plant, and waters while maintaining safe battery and humidity levels."
+duration: 120.0
+continuous_signals:
+  - topic: "greenhouse.sensors.humidity"
+    attribute: "humidity"
+    segments:
+      - time: 0.0
+        value: 35.0
+        rate: 0.0
+      - time: 120.0
+        value: 35.0
+        rate: 0.0
+  - topic: "greenhouse.robot.actuator"
+    attribute: "battery"
+    segments:
+      - time: 0.0
+        value: 95.0
+        rate: -0.1
+      - time: 120.0
+        value: 83.0
+        rate: 0.0
+  - topic: "greenhouse.robot.actuator"
+    attribute: "waterLevel"
+    segments:
+      - time: 0.0
+        value: 95.0
+        rate: 0.0
+      - time: 20.0
+        value: 95.0
+        rate: -0.5
+      - time: 30.0
+        value: 90.0
+        rate: 1.0
+      - time: 40.0
+        value: 100.0
+        rate: -0.05
+      - time: 120.0
+        value: 96.0
+        rate: 0.0
+  - topic: "greenhouse.robot.actuator"
+    attribute: "position.x"
+    segments:
+      - time: 0.0
+        value: 0.0
+        rate: 0.25
+      - time: 20.0
+        value: 5.0
+        rate: 0.0
+      - time: 60.0
+        value: 5.0
+        rate: 0.125
+      - time: 100.0
+        value: 10.0
+        rate: 0.0
+      - time: 120.0
+        value: 10.0
+        rate: 0.0
+  - topic: "greenhouse.robot.actuator"
+    attribute: "position.y"
+    segments:
+      - time: 0.0
+        value: 0.0
+        rate: 0.25
+      - time: 20.0
+        value: 5.0
+        rate: 0.0
+      - time: 60.0
+        value: 5.0
+        rate: 0.125
+      - time: 100.0
+        value: 10.0
+        rate: 0.0
+      - time: 120.0
+        value: 10.0
+        rate: 0.0
+discrete_events: []

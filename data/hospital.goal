@@ -1,0 +1,82 @@
+Broker<MQTT> HospitalMQTT
+    host: 'localhost'
+    port: 1883
+    auth:
+        username: ''
+        password: ''
+end
+
+Entity PharmacyCoolerSensor
+    type: sensor
+    uri: 'hospital.sensors.pharmacy_cooler'
+    source: HospitalMQTT
+    attributes:
+        - coolerTemp: float
+end
+
+Entity CorridorProximitySensor
+    type: sensor
+    uri: 'hospital.sensors.corridor_proximity'
+    source: HospitalMQTT
+    attributes:
+        - minObstacleDist: float
+end
+
+Entity MedBot
+    type: hybrid
+    uri: 'hospital.robot.medbot'
+    source: HospitalMQTT
+    attributes:
+        - battery: float
+        - cargoTemp: float
+        - payloadSecured: float
+        - position: dict
+end
+
+Goal<EntityStateCondition> CheckCoolerTemp
+    condition: (PharmacyCoolerSensor.coolerTemp < 6.0)
+end
+
+Goal<EntityStateCondition> CheckCorridorClear
+    condition: (CorridorProximitySensor.minObstacleDist > 1.5)
+end
+
+Goal<EntityStateCondition> CheckMedBotReady
+    condition: (MedBot.battery > 20.0 and MedBot.payloadSecured > 0.5)
+end
+
+Goal<Position> PassCheckpoint
+    entity: MedBot
+    position: Point2D(12.0, 8.0)
+    maxDeviation: 0.5
+end
+
+Goal<Position> DeliverToWard
+    entity: MedBot
+    position: Point2D(24.0, 8.0)
+    maxDeviation: 0.5
+end
+
+Goal<Complex> HospitalDeliveryMission
+    goals:
+        - CheckCoolerTemp -> 0.2
+        - CheckCorridorClear -> 0.2
+        - CheckMedBotReady -> 0.2
+        - PassCheckpoint -> 0.2
+        - DeliverToWard -> 0.2
+    strategy: ALL_ACCOMPLISHED_ORDERED
+    timeConstraints:
+        - FROM_GOAL_START(<120)
+end
+
+RTMonitor
+    broker: HospitalMQTT
+    eventTopic: "goaldsl.{U_ID}.event"
+    logsTopic: "goaldsl.{U_ID}.log"
+end
+
+Scenario HospitalDeliveryScenario
+    goals:
+        - HospitalDeliveryMission
+    concurrent: False
+end

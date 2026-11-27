@@ -1,0 +1,67 @@
+Broker<MQTT> LocalEMQX
+    host: 'localhost'
+    port: 1883
+    auth:
+        username: ''
+        password: ''
+end
+
+Entity ClimateSensor
+    type: sensor
+    uri: 'greenhouse.sensors.humidity'
+    source: LocalEMQX
+    attributes:
+        - humidity: float
+end
+
+Entity WaterBot
+    type: hybrid
+    uri: 'greenhouse.robot.actuator'
+    source: LocalEMQX
+    attributes:
+        - waterLevel: float
+        - battery: float
+        - position: dict
+end
+
+Goal<EntityStateCondition> CheckBattery
+    condition: (WaterBot.battery > 20.0)
+end
+
+Goal<EntityStateCondition> CheckHumidity
+    condition: (ClimateSensor.humidity < 40.0)
+end
+
+Goal<Position> MoveToRefillStation
+    entity: WaterBot
+    position: Point2D(5.0, 5.0)
+    maxDeviation: 0.5
+end
+
+Goal<EntityStateCondition> CheckWaterLevel
+    condition: (WaterBot.waterLevel > 90.0)
+end
+
+Goal<Position> MoveToPlant
+    entity: WaterBot
+    position: Point2D(10.0, 10.0)
+    maxDeviation: 0.5
+end
+
+Goal<Complex> WaterPlants
+    goals:
+        - CheckBattery -> 0.9
+        - CheckHumidity -> 0.8
+        - MoveToRefillStation -> 0.7
+        - CheckWaterLevel -> 0.6
+        - MoveToPlant -> 0.5
+    strategy: ALL_ACCOMPLISHED_ORDERED
+    timeConstraints:
+        - FROM_GOAL_START(<120)
+end
+
+Scenario GreenhouseMaintenance
+    goals:
+        - WaterPlants
+    concurrent: False
+end

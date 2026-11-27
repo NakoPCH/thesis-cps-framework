@@ -1,0 +1,68 @@
+sweep_id: SWEEP-20261115-204044-89d0
+created_at: '2026-11-15 20:40:44'
+baseline_file: C:\Users\Okan\Desktop\Thesus\2. Code\thesis-cps-framework\data\scenarios\nominal_baseline.yaml
+world_model_file: C:\Users\Okan\Desktop\Thesus\2. Code\thesis-cps-framework\data\world_models\world_model.yaml
+duration: 120.0
+inject_ratio: 0.3
+inject_time: 36.0
+fault_modes:
+- freeze
+- zero
+- no_tx
+total_entities_in_world: 5
+active_entities_swept: 2
+unmapped_entities:
+- Plant
+- RefillStation
+- greenhouse
+total_cases: 6
+cases:
+- fault_id: fault_waterbot_freeze
+  entity_name: WaterBot
+  in_goal_spec: true
+  topics: &id001
+  - greenhouse.robot.actuator
+  affected_attributes: &id002
+  - battery
+  - waterLevel
+  - position.x
+  - position.y
+  fault_type: freeze
+  inject_time: 36.0
+- fault_id: fault_waterbot_zero
+  entity_name: WaterBot
+  in_goal_spec: true
+  topics: *id001
+  affected_attributes: *id002
+  fault_type: zero
+  inject_time: 36.0
+- fault_id: fault_waterbot_no_tx
+  entity_name: WaterBot
+  in_goal_spec: true
+  topics: *id001
+  affected_attributes: *id002
+  fault_type: no_tx
+  inject_time: 36.0
+- fault_id: fault_climatesensor_freeze
+  entity_name: ClimateSensor
+  in_goal_spec: true
+  topics: &id003
+  - greenhouse.sensors.humidity
+  affected_attributes: &id004
+  - humidity
+  fault_type: freeze
+  inject_time: 36.0
+- fault_id: fault_climatesensor_zero
+  entity_name: ClimateSensor
+  in_goal_spec: true
+  topics: *id003
+  affected_attributes: *id004
+  fault_type: zero
+  inject_time: 36.0
+- fault_id: fault_climatesensor_no_tx
+  entity_name: ClimateSensor
+  in_goal_spec: true
+  topics: *id003
+  affected_attributes: *id004
+  fault_type: no_tx
+  inject_time: 36.0

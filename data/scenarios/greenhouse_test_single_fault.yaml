@@ -1,0 +1,17 @@
+sweep_id: DEBUG-SINGLE-WATERBOT
+baseline_file: C:\Users\Okan\Desktop\Thesus\2. Code\thesis-cps-framework\data\scenarios\nominal_baseline.yaml
+duration: 120.0
+inject_time: 36.0
+cases:
+  - fault_id: fault_waterbot_freeze
+    entity_name: WaterBot
+    in_goal_spec: true
+    topics:
+      - greenhouse.robot.actuator
+    affected_attributes:
+      - battery
+      - waterLevel
+      - position.x
+      - position.y
+    fault_type: freeze
+    inject_time: 36.0

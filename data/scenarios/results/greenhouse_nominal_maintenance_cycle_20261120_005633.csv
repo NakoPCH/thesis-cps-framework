@@ -1,0 +1,2 @@
+timestamp_utc,mode,scenario_id,fault_id,entity_name,in_goal_spec,fault_type,inject_time_s,verdict,final_score,failed_goal,detection_latency_s,goalee_elapsed_s,wall_elapsed_s,goal_results
+2026-11-19T22:58:12.935852+00:00,single,greenhouse_nominal_maintenance_cycle,nominal,N/A,N/A,nominal,,PASS,1.0,,,96.428,97.026,WaterPlants=PASS
