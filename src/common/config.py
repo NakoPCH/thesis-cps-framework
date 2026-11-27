@@ -20,10 +20,11 @@ EXPERIMENTS_DIR.mkdir(parents=True, exist_ok=True)
 REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
 WORLD_MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-# Environment & API Setup
-load_dotenv(ROOT_DIR / ".env")
-TOKEN = os.getenv("OPENROUTER_API_TOKEN")
-BASE_URL = "https://openrouter.ai/api/v1"
+# Environment & API Setup - openrouter
+
+# load_dotenv(ROOT_DIR / ".env")
+# TOKEN = os.getenv("OPENROUTER_API_TOKEN")     
+# BASE_URL = "https://openrouter.ai/api/v1"
 
 # Model Selection
 # MODEL = "liquid/lfm-2.5-2.6b:free"
@@ -31,8 +32,19 @@ BASE_URL = "https://openrouter.ai/api/v1"
 # MODEL = "google/gemma-4-31b-it:free"
 # MODEL = "google/gemma-4-26b-a4b-it:free"
 # MODEL = "openrouter/free"
-MODEL = "nvidia/nemotron-3.5-lightning:free"
+# MODEL = "nvidia/nemotron-3.5-lightning:free"
+# JUDGE_MODEL = MODEL
+
+# Environment & API Setup - Google
+load_dotenv(ROOT_DIR / ".env")
+TOKEN = os.getenv("GEMINI_API_KEY")
+BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+
+# Model Selection
+MODEL = "gemini-3.6-flash"
 JUDGE_MODEL = MODEL
+
+
 
 # Verification Loop Configuration
 ENABLE_TIER_1 = True
