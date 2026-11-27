@@ -363,6 +363,19 @@ class ScenarioRunner:
                     self._first_failed_goal = goal_name
                     self._first_failed_sim_time = round(self._current_sim_time, 3)
 
+            elif evt_type == "entity_warning":
+                sim_t = round(self._current_sim_time, 3)
+                if self._first_warning_sim_time is None:
+                    self._first_warning_sim_time = sim_t
+                warning_record = dict(evt_data)
+                warning_record["sim_time_s"] = sim_t
+                self._entity_warnings.append(warning_record)
+                ent = warning_record.get("entity_name", "unknown")
+                w_type = warning_record.get("warning_type", "unknown")
+                print(
+                    f"   ⚠️ [t={sim_t:6.2f}s] RTMonitor Entity Warning: {ent} -> {w_type}"
+                )
+
             elif evt_type == "scenario_finished":
                 self._scenario_finished_data = evt_data
                 self._finished_event.set()
@@ -463,6 +476,8 @@ class ScenarioRunner:
             fin = self._scenario_finished_data
             failed_goal = self._first_failed_goal
             failed_sim_t = self._first_failed_sim_time
+            warnings = list(self._entity_warnings)
+            first_warn_sim_t = self._first_warning_sim_time
 
         inject_time = case_meta.get("inject_time") if case_meta else None
 
@@ -505,6 +520,17 @@ class ScenarioRunner:
         if failed_sim_t is not None and inject_time is not None:
             detection_latency_s = round(max(0.0, failed_sim_t - float(inject_time)), 3)
 
+        warning_count = len(warnings)
+        warning_latency_s: Any = ""
+        if first_warn_sim_t is not None and inject_time is not None:
+            warning_latency_s = round(
+                max(0.0, first_warn_sim_t - float(inject_time)), 3
+            )
+        runtime_warnings_str = "; ".join(
+            f"{w.get('entity_name', 'unknown')}:{w.get('warning_type', 'unknown')}@{w.get('sim_time_s', '?')}s"
+            for w in warnings
+        )
+
         row: Dict[str, Any] = {
             "timestamp_utc": datetime.now(timezone.utc).isoformat(),
             "mode": "sweep" if case_meta is not None else "single",
@@ -527,6 +553,9 @@ class ScenarioRunner:
             "goalee_elapsed_s": goalee_elapsed_s,
             "wall_elapsed_s": round(elapsed_wall, 3),
             "goal_results": goal_results_str,
+            "warning_count": warning_count,
+            "warning_latency_s": warning_latency_s,
+            "runtime_warnings": runtime_warnings_str,
         }
 
         if self._csv_writer is not None and self._csv_file is not None:
@@ -538,7 +567,10 @@ class ScenarioRunner:
         lat_disp = (
             f" | Latency: {detection_latency_s}s" if detection_latency_s != "" else ""
         )
-        print(f"📋 VERDICT: {verdict} | Score: {score_disp}{fail_disp}{lat_disp}")
+        warn_disp = f" | Warnings: {warning_count}" if warning_count > 0 else ""
+        print(
+            f"📋 VERDICT: {verdict} | Score: {score_disp}{fail_disp}{lat_disp}{warn_disp}"
+        )
         if verdict == "NO_RTMONITOR":
             print(
                 "   ⚠️ No RTMonitor event received (verify RTMonitor block is present in .goal file)."
