@@ -197,9 +197,20 @@ def generate_and_verify_category_scenario(
     """Generates and validates a scenario for a single category with self-repair retries."""
     os.makedirs(SCENARIOS_OUTPUT_DIR, exist_ok=True)
     csv_path = EXPERIMENTS_DIR / "eval_scenarios.csv"
-    output_filename = (
+
+    # Extract domain prefix from '<domain>_world_model.yaml' (e.g., 'hospital_')
+    world_prefix = ""
+    if yaml_world_file:
+        stem = Path(yaml_world_file).stem
+        if stem != "world_model":
+            domain_name = stem.removesuffix("_world_model")
+            if domain_name:
+                world_prefix = f"{domain_name}_"
+
+    base_filename = (
         "nominal_baseline.yaml" if category == "nominal" else f"scenario_{category}.yaml"
     )
+    output_filename = f"{world_prefix}{base_filename}"
     output_file = SCENARIOS_OUTPUT_DIR / output_filename
 
     initial_user_prompt = build_scenario_generation_prompt(
@@ -218,7 +229,7 @@ def generate_and_verify_category_scenario(
     attempts_history: List[Dict[str, Any]] = []
 
     print(f"\n----------------------------------------------")
-    print(f"🎯 Generating Scenario Category: [{category.upper()}]")
+    print(f"🎯 Generating Scenario Category: [{category.upper()}] -> {output_filename}")
     print(f"----------------------------------------------")
 
     for attempt in range(max_retries):
@@ -390,6 +401,22 @@ def generate_and_verify_category_scenario(
             "scenario_data": val_result.scenario_data,
             "attempts": attempts_history,
         }
+
+    # If all retries exhausted, move broken output to failed backup
+    if output_file.exists():
+        failed_backup = SCENARIOS_OUTPUT_DIR / f"{world_prefix}failed_scenario_{category}.yaml"
+        os.replace(output_file, failed_backup)
+
+    print(f"🚨 [{category.upper()}] Failed to generate valid scenario after {max_retries} attempts.")
+    return {
+        "category": category,
+        "status": "FAILED",
+        "total_attempts": len(attempts_history),
+        "file_path": None,
+        "generated_yaml": None,
+        "scenario_data": None,
+        "attempts": attempts_history,
+    }
 
     # If all retries exhausted, move broken output to failed backup
     if output_file.exists():
